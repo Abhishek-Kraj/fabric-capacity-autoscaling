@@ -11,65 +11,47 @@
       "defaultValue": "[resourceGroup().location]"
     },
     "subscriptionId": {
-      "type": "string",
-      "metadata": { "description": "Azure subscription containing the Fabric capacity" }
+      "type": "string"
     },
     "resourceGroup": {
-      "type": "string",
-      "metadata": { "description": "Resource group that contains the Fabric capacity" }
+      "type": "string"
     },
     "fabricCapacityName": {
-      "type": "string",
-      "metadata": { "description": "Name of the Fabric capacity (e.g., my-fabric-capacity)" }
+      "type": "string"
     },
     "notificationEmail": {
-      "type": "string",
-      "metadata": { "description": "Email address to notify" }
-    },
-    "teamsChannelId": {
-      "type": "string",
-      "metadata": { "description": "Teams channel/conversation ID to post messages into" }
+      "type": "string"
     },
     "keyVaultName": {
-      "type": "string",
-      "metadata": { "description": "Key Vault name used to persist the last scale timestamp" }
+      "type": "string"
     },
     "coolDownMinutes": {
       "type": "int",
-      "defaultValue": 30,
-      "metadata": { "description": "Minimum minutes between scale operations" }
+      "defaultValue": 30
     },
     "coolDownSecretName": {
       "type": "string",
-      "defaultValue": "fabric-autoscale-last-scaled-utc",
-      "metadata": { "description": "Key Vault secret name to store last scale UTC timestamp" }
+      "defaultValue": "fabric-autoscale-last-scaled-utc"
     },
     "metricsEndpointUrl": {
       "type": "string",
-      "defaultValue": "https://api.fabric.microsoft.com/v1/capacities/{capacityId}/metrics",
-      "metadata": {
-        "description": "HTTP endpoint that returns JSON with cuUsagePercentage (number). Replace with your metrics source or proxy."
-      }
+      "defaultValue": "https://api.fabric.microsoft.com/v1/capacities/{capacityId}/metrics"
     },
     "scaleUpThreshold": {
       "type": "int",
-      "defaultValue": 80,
-      "metadata": { "description": "CU% threshold to trigger scale up" }
+      "defaultValue": 80
     },
     "scaleDownThreshold": {
       "type": "int",
-      "defaultValue": 40,
-      "metadata": { "description": "CU% threshold to trigger scale down" }
+      "defaultValue": 40
     },
     "scaleUpSku": {
       "type": "string",
-      "defaultValue": "F128",
-      "allowedValues": ["F2","F4","F8","F16","F32","F64","F128","F256","F512","F1024","F2048"]
+      "defaultValue": "F128"
     },
     "scaleDownSku": {
       "type": "string",
-      "defaultValue": "F64",
-      "allowedValues": ["F2","F4","F8","F16","F32","F64","F128","F256","F512","F1024","F2048"]
+      "defaultValue": "F64"
     }
   },
   "resources": [
@@ -82,18 +64,6 @@
         "displayName": "office365",
         "api": {
           "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'office365')]"
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Web/connections",
-      "apiVersion": "2016-06-01",
-      "name": "teams",
-      "location": "[parameters('location')]",
-      "properties": {
-        "displayName": "teams",
-        "api": {
-          "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'teams')]"
         }
       }
     },
@@ -113,11 +83,6 @@
                 "connectionId": "[resourceId('Microsoft.Web/connections', 'office365')]",
                 "connectionName": "office365",
                 "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'office365')]"
-              },
-              "teams": {
-                "connectionId": "[resourceId('Microsoft.Web/connections', 'teams')]",
-                "connectionName": "teams",
-                "id": "[subscriptionResourceId('Microsoft.Web/locations/managedApis', parameters('location'), 'teams')]"
               }
             }
           }
@@ -151,8 +116,7 @@
                     "value": "1900-01-01T00:00:00Z"
                   }
                 ]
-              },
-              "runAfter": {}
+              }
             },
             "Get_LastScale_Secret": {
               "type": "Http",
@@ -199,10 +163,6 @@
                 "headers": {
                   "Accept": "application/json"
                 }
-                /* NOTE:
-                   - Provide an endpoint that returns {"cuUsagePercentage": <number> }.
-                   - If authentication is required, replace with appropriate connector or MSI-secured endpoint.
-                */
               },
               "runAfter": {
                 "If_Secret_Succeeded": [
@@ -298,26 +258,6 @@
                           "Succeeded"
                         ]
                       }
-                    },
-                    "Notify_Teams_Up": {
-                      "type": "ApiConnection",
-                      "inputs": {
-                        "host": {
-                          "connection": {
-                            "name": "@parameters('$connections')['teams']['connectionId']"
-                          }
-                        },
-                        "method": "POST",
-                        "path": "/v3/conversations/@{parameters('teamsChannelId')}/messages",
-                        "body": {
-                          "text": "Fabric capacity **@{parameters('fabricCapacityName')}** scaled **UP** to **@{parameters('scaleUpSku')}** (CU > @{parameters('scaleUpThreshold')}%)."
-                        }
-                      },
-                      "runAfter": {
-                        "Notify_Email_Up": [
-                          "Succeeded"
-                        ]
-                      }
                     }
                   },
                   "else": {
@@ -386,26 +326,6 @@
                                 "Succeeded"
                               ]
                             }
-                          },
-                          "Notify_Teams_Down": {
-                            "type": "ApiConnection",
-                            "inputs": {
-                              "host": {
-                                "connection": {
-                                  "name": "@parameters('$connections')['teams']['connectionId']"
-                                }
-                              },
-                              "method": "POST",
-                              "path": "/v3/conversations/@{parameters('teamsChannelId')}/messages",
-                              "body": {
-                                "text": "Fabric capacity **@{parameters('fabricCapacityName')}** scaled **DOWN** to **@{parameters('scaleDownSku')}** (CU < @{parameters('scaleDownThreshold')}%)."
-                              }
-                            },
-                            "runAfter": {
-                              "Notify_Email_Down": [
-                                "Succeeded"
-                              ]
-                            }
                           }
                         }
                       }
@@ -427,10 +347,10 @@
                 ]
               }
             }
-          },
-          "outputs": {}
+          }
         }
       }
     }
   ]
 }
+``
