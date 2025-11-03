@@ -279,13 +279,21 @@
     }
   ],
   "outputs": {
-    "logicAppUrl": {
+    "logicAppName": {
       "type": "string",
-      "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '/triggers/Recurrence'), '2019-05-01').value]"
+      "value": "[parameters('logicAppName')]"
+    },
+    "logicAppResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Logic/workflows', parameters('logicAppName'))]"
     },
     "principalId": {
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Logic/workflows', parameters('logicAppName')), '2019-05-01', 'Full').identity.principalId]"
+    },
+    "office365ConnectionName": {
+      "type": "string",
+      "value": "[variables('office365ConnectionName')]"
     }
   }
 }
