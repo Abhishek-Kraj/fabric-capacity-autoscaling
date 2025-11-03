@@ -109,6 +109,9 @@
                           "type": "string"
                         }
                       }
+                    },
+                    "location": {
+                      "type": "string"
                     }
                   }
                 }
@@ -119,11 +122,11 @@
                 ]
               }
             },
-            "Get_Capacity_Metrics": {
+            "Get_Capacity_Usage": {
               "type": "Http",
               "inputs": {
                 "method": "GET",
-                "uri": "https://management.azure.com/subscriptions/@{parameters('subscriptionId')}/resourceGroups/@{parameters('resourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('fabricCapacityName')}/providers/microsoft.insights/metrics?api-version=2018-01-01&timespan=PT5M&interval=PT1M&metricnames=Overload&aggregation=Average",
+                "uri": "https://management.azure.com/subscriptions/@{parameters('subscriptionId')}/providers/Microsoft.Fabric/locations/@{body('Parse_Capacity_Info')?['location']}/usages?api-version=2023-11-01",
                 "authentication": {
                   "type": "ManagedServiceIdentity"
                 }
@@ -134,21 +137,49 @@
                 ]
               }
             },
-            "Parse_Metrics": {
+            "Parse_Usage_Response": {
               "type": "ParseJson",
               "inputs": {
-                "content": "@body('Get_Capacity_Metrics')",
+                "content": "@body('Get_Capacity_Usage')",
                 "schema": {
                   "type": "object",
                   "properties": {
                     "value": {
-                      "type": "array"
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "currentValue": {
+                            "type": "integer"
+                          },
+                          "limit": {
+                            "type": "integer"
+                          }
+                        }
+                      }
                     }
                   }
                 }
               },
               "runAfter": {
-                "Get_Capacity_Metrics": [
+                "Get_Capacity_Usage": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Calculate_Utilization_Percentage": {
+              "type": "Compose",
+              "inputs": "@if(greater(body('Parse_Usage_Response')?['value']?[0]?['limit'], 0), mul(div(float(body('Parse_Usage_Response')?['value']?[0]?['currentValue']), float(body('Parse_Usage_Response')?['value']?[0]?['limit'])), 100), 0)",
+              "runAfter": {
+                "Parse_Usage_Response": [
                   "Succeeded"
                 ]
               }
@@ -158,10 +189,18 @@
               "expression": {
                 "and": [
                   {
-                    "greater": [
-                      "@length(body('Parse_Metrics')?['value'])",
-                      0
+                    "greaterOrEquals": [
+                      "@outputs('Calculate_Utilization_Percentage')",
+                      "@parameters('scaleUpThreshold')"
                     ]
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@body('Parse_Capacity_Info')?['sku']?['name']",
+                        "@parameters('scaleUpSku')"
+                      ]
+                    }
                   }
                 ]
               },
@@ -197,7 +236,7 @@
                     "body": {
                       "To": "@parameters('notificationEmail')",
                       "Subject": "Fabric Capacity Scaled Up",
-                      "Body": "<p>Capacity <strong>@{parameters('fabricCapacityName')}</strong> scaled up to <strong>@{parameters('scaleUpSku')}</strong> due to high utilization.</p><p>Previous SKU: @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p>Time: @{utcNow()}</p>"
+                      "Body": "<p>Capacity <strong>@{parameters('fabricCapacityName')}</strong> scaled up to <strong>@{parameters('scaleUpSku')}</strong> due to high utilization.</p><p>Previous SKU: @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p>Utilization: @{outputs('Calculate_Utilization_Percentage')}%</p><p>Current CU Usage: @{body('Parse_Usage_Response')?['value']?[0]?['currentValue']} / @{body('Parse_Usage_Response')?['value']?[0]?['limit']}</p><p>Time: @{utcNow()}</p>"
                     }
                   },
                   "runAfter": {
@@ -211,7 +250,7 @@
                 "actions": {}
               },
               "runAfter": {
-                "Parse_Metrics": [
+                "Calculate_Utilization_Percentage": [
                   "Succeeded"
                 ]
               }
