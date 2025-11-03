@@ -21,13 +21,13 @@ This solution automates scaling Microsoft Fabric capacity based on CU utilizatio
 1. Clone the repo:
    ```bash
    git clone https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp.git
-   cd fabric-autoscale-logicapp
+   cd Fabric_Auto-Scaling_with_LogicApp
 
 2. Deploy Logic App using Azure CLI:
    ```bash
    az deployment group create \
      --resource-group <RG_NAME> \
-     --template-file templates/fabric-autoscale-template.json \
+     --template-file Templates/fabric-autoscale-template.json \
      --parameters subscriptionId=<SUB_ID> resourceGroup=<RG_NAME> fabricCapacityName=<CAPACITY_NAME> notificationEmail=<EMAIL>
 
 4. Configure Office 365 connector in Logic App designer.
