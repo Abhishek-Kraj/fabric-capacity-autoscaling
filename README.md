@@ -1,4 +1,4 @@
-# Microsoft Fabric Auto-Scaling Solution# Microsoft Fabric Auto-Scaling with Azure Logic Apps and Functions# Microsoft Fabric Auto-Scaling with Azure Logic Apps and Functions# Microsoft Fabric Auto-Scaling with Azure Logic Apps
+# Microsoft Fabric Auto-Scaling Solution# Microsoft Fabric Auto-Scaling Solution# Microsoft Fabric Auto-Scaling Solution# Microsoft Fabric Auto-Scaling with Azure Logic Apps and Functions# Microsoft Fabric Auto-Scaling with Azure Logic Apps and Functions# Microsoft Fabric Auto-Scaling with Azure Logic Apps
 
 
 
@@ -6,398 +6,759 @@ Automated scaling for Microsoft Fabric capacity based on real-time utilization m
 
 
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
-
-
-## Overview
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)Automated scaling for Microsoft Fabric capacity based on real-time utilization metrics using Azure Functions and Logic Apps.
 
 
 
-This solution automatically scales your Fabric capacity up or down based on sustained CU utilization. A Python Azure Function queries the **Fabric Capacity Metrics App** to analyze usage patterns, and an Azure Logic App orchestrates scaling actions with email notifications.## Overview
+---
 
 
 
-## Key Features
+## Overview[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
 
 
 
-- 🎯 **Smart Scaling**: Only scales when utilization exceeds thresholds for 15+ minutes (prevents temporary spike reactions)This solution automates scaling Microsoft Fabric capacity based on real-time utilization metrics from the **Fabric Capacity Metrics App**. The solution uses an Azure Function to intelligently query metrics and an Azure Logic App to orchestrate scaling actions with email notifications.
-
-- 🔐 **Secure**: Uses Managed Identity authentication (no secrets)
-
-- 📧 **Notifications**: Email alerts with detailed metrics
-
-- ⚙️ **Configurable**: Custom thresholds, SKUs, and sustained duration
-
-- 📊 **Observable**: Built-in Application Insights monitoring## Features## Overview## Overview
+This solution automatically scales your Microsoft Fabric capacity up or down based on sustained CU utilization patterns. It leverages a **Python Azure Function** to intelligently query the **Fabric Capacity Metrics App** for real-time usage data, and an **Azure Logic App** to orchestrate scaling actions with email notifications.
 
 
 
-## Architecture
+The architecture ensures that scaling only occurs when utilization thresholds are sustained over time (default: 15 minutes), preventing costly reactions to temporary spikes.---
 
 
 
-```- ✅ **Intelligent Metrics Analysis**: Python Azure Function queries Fabric Capacity Metrics App for accurate CU utilization dataThis solution automates scaling Microsoft Fabric capacity based on real-time utilization metrics from the **Fabric Capacity Metrics App**. The solution uses an Azure Function to intelligently query metrics and an Azure Logic App to orchestrate scaling actions with email notifications.This solution automates scaling Microsoft Fabric capacity based on overload metrics using Azure Logic Apps with Managed Identity authentication. The Logic App monitors your Fabric capacity and automatically scales up or down based on utilization.
+---
+
+
+
+## Key FeaturesThis solution automatically scales your Fabric capacity up or down based on sustained CU utilization. A Python Azure Function queries the **Fabric Capacity Metrics App** to analyze usage patterns, and an Azure Logic App orchestrates scaling actions with email notifications.## Overview[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+
+
+
+- 🎯 **Intelligent Sustained Threshold Detection**: Only scales when utilization stays above/below thresholds for a configurable duration
+
+- 📊 **Native Fabric Metrics Integration**: Queries official Fabric Capacity Metrics App via Power BI REST API
+
+- 🔐 **Secure Authentication**: Uses Managed Identity for all Azure resource access (no secrets to manage)This solution automatically scales your Microsoft Fabric capacity up or down based on sustained CU utilization patterns. It leverages a **Python Azure Function** to intelligently query the **Fabric Capacity Metrics App** for real-time usage data, and an **Azure Logic App** to orchestrate scaling actions with email notifications.
+
+- 📧 **Rich Email Notifications**: Detailed alerts with utilization metrics and SKU changes
+
+- ⚙️ **Fully Configurable**: Customize thresholds, SKUs, sustained duration, and recurrence intervals
+
+- 📈 **Built-in Monitoring**: Application Insights integration for Function App telemetry
+
+- 💰 **Cost Efficient**: ~$3/month with Consumption-based pricingThe architecture ensures that scaling only occurs when utilization thresholds are sustained over time (default: 15 minutes), preventing costly reactions to temporary spikes.---
+
+
+
+---
+
+
+
+## How It Works---
+
+
+
+### Architecture Flow
+
+
+
+```## Key Features## Overview## Overview
 
 Fabric Capacity Metrics App → Function App (Python) → Logic App → Scale Capacity
 
-                                     ↓- ✅ **Sustained Threshold Detection**: Only scales when utilization stays above/below threshold for configurable duration (default 15 minutes)
+        ↓                                                  ↓[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
 
-                              Email Notification
+  Power BI REST API                              Email Notification
 
-```- ✅ **Automated Scaling**: Scale up (e.g., F64 → F128) when sustained high utilization, scale down when sustained low utilization
+```- 🎯 **Intelligent Sustained Threshold Detection**: Only scales when utilization stays above/below thresholds for a configurable duration
 
 
 
-**Components:**- ✅ **Managed Identity Authentication**: Secure authentication using Azure Managed Identity (no secrets to manage)
+### Sustained Threshold Logic- 📊 **Native Fabric Metrics Integration**: Queries official Fabric Capacity Metrics App via Power BI REST API
 
-- **Function App**: Queries Capacity Metrics App, calculates sustained utilization
 
-- **Logic App**: Runs every 5 minutes, scales capacity based on Function's recommendation- ✅ **Email Notifications**: Receive detailed email alerts via Office 365 when scaling events occur## Features## Features
 
-- **Capacity Metrics App**: Microsoft's official app for tracking Fabric capacity metrics
+1. **Logic App triggers** every 5 minutes- 🔐 **Secure Authentication**: Uses Managed Identity for all Azure resource access (no secrets to manage)
 
-- ✅ **Configurable Parameters**: Customize thresholds, SKUs, and sustained duration via ARM template
+2. **Function App queries** Fabric Capacity Metrics App for last 15 minutes of data
 
-## Prerequisites
+3. **Function counts** how many readings exceeded the threshold- 📧 **Rich Email Notifications**: Detailed alerts with utilization metrics and SKU changesThis solution automatically scales your Microsoft Fabric capacity up or down based on sustained CU utilization patterns. It leverages a **Python Azure Function** to intelligently query the **Fabric Capacity Metrics App** for real-time usage data, and an **Azure Logic App** to orchestrate scaling actions with email notifications.
+
+4. **Scaling occurs** only if:
+
+   - ≥3 readings exceed threshold AND- ⚙️ **Fully Configurable**: Customize thresholds, SKUs, sustained duration, and recurrence intervals
+
+   - Current utilization meets threshold AND
+
+   - Current SKU ≠ target SKU- 📈 **Built-in Monitoring**: Application Insights integration for Function App telemetry
+
+
+
+**Example:**- 💰 **Cost Efficient**: ~$3/month with Consumption-based pricing
+
+- Readings: `[85%, 87%, 82%, 90%]` → **Scale Up** ✅ (4 readings above 80% threshold)
+
+- Readings: `[85%, 60%, 70%, 65%]` → **No action** ❌ (only 1 reading above threshold)The architecture ensures that scaling only occurs when utilization thresholds are sustained over time (default: 15 minutes), preventing costly reactions to temporary spikes.This solution automates scaling Microsoft Fabric capacity based on real-time utilization metrics from the **Fabric Capacity Metrics App**. The solution uses an Azure Function to intelligently query metrics and an Azure Logic App to orchestrate scaling actions with email notifications.
+
+
+
+------
+
+
+
+## Deployment
+
+
+
+### Quick Deploy## How It Works
+
+
+
+Click the **Deploy to Azure** button above to quickly deploy the infrastructure to your Azure subscription.---
+
+
+
+### Full Instructions### Architecture Flow
+
+
+
+For complete deployment instructions, prerequisites, and post-deployment configuration, see:
+
+
+
+📖 **[Deployment Guide](DEPLOYMENT-GUIDE.md)**```
+
+
+
+---Fabric Capacity Metrics App → Function App (Python) → Logic App → Scale Capacity## Key Features## Features## Overview## Overview
+
+
+
+## Cost Estimation        ↓                                                  ↓
+
+
+
+| Resource | Pricing Tier | Est. Monthly Cost |  Power BI REST API                              Email Notification
+
+|----------|--------------|-------------------|
+
+| Function App | Consumption | ~$0.20 |```
+
+| Logic App | Consumption | ~$0.30 |
+
+| Storage Account | Standard LRS | ~$0.50 |- 🎯 **Intelligent Sustained Threshold Detection**: Only scales when utilization stays above/below thresholds for a configurable duration (prevents false triggers)
+
+| Application Insights | Basic | ~$2.00 |
+
+| **Total** | | **~$3.00** |### Sustained Threshold Logic
+
+
+
+---- 📊 **Native Fabric Metrics Integration**: Queries official Fabric Capacity Metrics App via Power BI REST API for accurate data
+
+
+
+## Monitoring and Troubleshooting1. **Logic App triggers** every 5 minutes
+
+
+
+### View Logs2. **Function App queries** Fabric Capacity Metrics App for last 15 minutes of data- 🔐 **Secure Authentication**: Uses Managed Identity for all Azure resource access (no secrets or keys to manage)- ✅ **Intelligent Metrics Analysis**: Python Azure Function queries Fabric Capacity Metrics App for accurate CU utilization dataThis solution automates scaling Microsoft Fabric capacity based on real-time utilization metrics from the **Fabric Capacity Metrics App**. The solution uses an Azure Function to intelligently query metrics and an Azure Logic App to orchestrate scaling actions with email notifications.This solution automates scaling Microsoft Fabric capacity based on overload metrics using Azure Logic Apps with Managed Identity authentication. The Logic App monitors your Fabric capacity and automatically scales up or down based on utilization.
+
+
+
+- **Function App**: Azure Portal → Function App → Application Insights → Logs3. **Function counts** how many readings exceeded the threshold
+
+- **Logic App**: Azure Portal → Logic App → Runs history
+
+4. **Scaling occurs** only if:- 📧 **Rich Email Notifications**: Detailed alerts with current/average utilization, SKU changes, and metrics
+
+### Common Issues
+
+   - ≥3 readings exceed threshold AND
+
+| Issue | Solution |
+
+|-------|----------|   - Current utilization meets threshold AND- ⚙️ **Fully Configurable**: Customize thresholds, SKUs, sustained duration, and recurrence intervals- ✅ **Sustained Threshold Detection**: Only scales when utilization stays above/below threshold for configurable duration (default 15 minutes)
+
+| Function returns "Failed to retrieve metrics" | Verify Capacity Metrics App is installed and Function has workspace access |
+
+| Logic App fails with "Unauthorized" | Check Logic App Managed Identity has Contributor role on Fabric capacity |   - Current SKU ≠ target SKU
+
+| No email notifications | Verify Office 365 connection is authorized |
+
+- 📈 **Built-in Monitoring**: Application Insights integration for Function App telemetry and debugging
+
+For detailed troubleshooting, see **[Testing Guide](TESTING-GUIDE.md)**
+
+**Example:**
+
+---
+
+- Readings: `[85%, 87%, 82%, 90%]` → **Scale Up** ✅ (4 readings above 80% threshold)- 🚀 **One-Click Deployment**: Deploy to Azure button for quick infrastructure setup- ✅ **Automated Scaling**: Scale up (e.g., F64 → F128) when sustained high utilization, scale down when sustained low utilization
+
+## Contributing
+
+- Readings: `[85%, 60%, 70%, 65%]` → **No action** ❌ (only 1 reading above threshold)
+
+Contributions are welcome! To contribute:
+
+- 💰 **Cost Efficient**: ~$3/month running cost with Consumption-based pricing
+
+1. Fork the repository
+
+2. Create a feature branch---
+
+3. Commit your changes
+
+4. Push to the branch- ✅ **Managed Identity Authentication**: Secure authentication using Azure Managed Identity (no secrets to manage)
+
+5. Open a Pull Request
+
+## Deployment Options
+
+---
+
+---
+
+## License
+
+### Quick Deploy
+
+MIT License - see the [LICENSE](LICENSE) file for details.
+
+- ✅ **Email Notifications**: Receive detailed email alerts via Office 365 when scaling events occur## Features## Features
+
+---
+
+Click the **Deploy to Azure** button above to deploy the infrastructure to your Azure subscription.
+
+## Support
+
+## How It Works
+
+- **Issues**: [GitHub Issues](https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/issues)
+
+- **Documentation**: [Deployment Guide](DEPLOYMENT-GUIDE.md) | [Testing Guide](TESTING-GUIDE.md)### Full Deployment Instructions
+
+
+
+---- ✅ **Configurable Parameters**: Customize thresholds, SKUs, and sustained duration via ARM template
+
+
+
+## Additional ResourcesFor complete step-by-step deployment instructions, including prerequisites, post-deployment configuration, and troubleshooting, see:
+
+
+
+- [Microsoft Fabric Capacity Metrics App](https://learn.microsoft.com/fabric/enterprise/metrics-app)### Architecture Flow
+
+- [Azure Logic Apps Documentation](https://docs.microsoft.com/azure/logic-apps/)
+
+- [Azure Functions Python Developer Guide](https://docs.microsoft.com/azure/azure-functions/functions-reference-python)**📖 [Deployment Guide](DEPLOYMENT-GUIDE.md)**
+
+- [Power BI REST API](https://learn.microsoft.com/rest/api/power-bi/)
 
 - ✅ **Automated Deployment**: Deploy via Azure CLI using PowerShell or Bash scripts- ✅ **Intelligent Metrics Analysis**: Python Azure Function queries Fabric Capacity Metrics App for accurate CU utilization data- ✅ **Automated Scaling**: Scale up (e.g., F64 → F128) when capacity is overloaded, scale down when underutilized
 
-- Azure subscription with Fabric capacity
+The deployment guide covers:
 
-- **[Fabric Capacity Metrics App](https://learn.microsoft.com/fabric/enterprise/metrics-app)** installed in a workspace- ✅ **Application Insights**: Built-in monitoring and logging for Function App
+- Prerequisites and setup```
 
-- Azure CLI ([Install](https://docs.microsoft.com/cli/azure/install-azure-cli))
+- Multiple deployment methods (PowerShell, Bash, Azure CLI)
 
-- Azure Functions Core Tools ([Install](https://docs.microsoft.com/azure/azure-functions/functions-run-local))- ✅ **Sustained Threshold Detection**: Only scales when utilization stays above/below threshold for configurable duration (default 15 minutes)- ✅ **Managed Identity Authentication**: Secure authentication using Azure Managed Identity (no secrets to manage)
+- Post-deployment configuration steps┌─────────────────────────────────────────────────────────────────┐- ✅ **Application Insights**: Built-in monitoring and logging for Function App
 
-- Office 365 account for notifications
+- Permission assignments
 
-## Architecture
-
-## Quick Start
-
-- ✅ **Automated Scaling**: Scale up (e.g., F64 → F128) when sustained high utilization, scale down when sustained low utilization- ✅ **Email Notifications**: Receive email alerts via Office 365 when scaling events occur
-
-### 1. Install Capacity Metrics App
-
-### Components
-
-1. Open your Fabric workspace
-
-2. Install **Microsoft Fabric Capacity Metrics** from AppSource- ✅ **Managed Identity Authentication**: Secure authentication using Azure Managed Identity (no secrets to manage)- ✅ **Configurable Thresholds**: Customize scale-up and scale-down SKUs via ARM template parameters
-
-3. Configure it to monitor your capacity
-
-4. Copy the **Workspace ID** (from workspace settings)1. **Azure Function App** (Python 3.11)
+- Function App code deployment│ Fabric Capacity Metrics App (Power BI Semantic Model)          │
 
 
 
-### 2. Deploy Solution   - Queries Fabric Capacity Metrics App via Power BI REST API- ✅ **Email Notifications**: Receive detailed email alerts via Office 365 when scaling events occur- ✅ **Azure Monitor Integration**: Uses native Azure Monitor metrics for Fabric capacity
+---│ Stores real-time CU utilization data                           │- ✅ **Sustained Threshold Detection**: Only scales when utilization stays above/below threshold for configurable duration (default 15 minutes)- ✅ **Managed Identity Authentication**: Secure authentication using Azure Managed Identity (no secrets to manage)
 
 
 
-**Option A: PowerShell**   - Retrieves historical CU utilization data
+## Cost Estimation└────────────────────────────┬────────────────────────────────────┘
 
-```powershell
 
-.\Scripts\deploy-logicapp.ps1 `   - Calculates utilization percentages- ✅ **Configurable Parameters**: Customize thresholds, SKUs, and sustained duration via ARM template- ✅ **Automated Deployment**: Deploy via Azure CLI using PowerShell or Bash scripts
 
-  -ResourceGroup "myRG" `
+Estimated monthly costs with default configuration:                             │ Power BI REST API## Architecture
 
-  -CapacityName "MyCapacity" `   - Determines if scaling is needed based on sustained thresholds
 
-  -WorkspaceId "12345678-1234-1234-1234-123456789abc" `
 
-  -Email "admin@company.com"   - Returns scaling recommendations- ✅ **Automated Deployment**: Deploy via Azure CLI using PowerShell or Bash scripts
+| Resource | Pricing Tier | Estimated Cost |                             ▼
+
+|----------|--------------|----------------|
+
+| Azure Function App | Consumption Plan | ~$0.20 |┌─────────────────────────────────────────────────────────────────┐- ✅ **Automated Scaling**: Scale up (e.g., F64 → F128) when sustained high utilization, scale down when sustained low utilization- ✅ **Email Notifications**: Receive email alerts via Office 365 when scaling events occur
+
+| Azure Logic App | Consumption | ~$0.30 |
+
+| Storage Account | Standard LRS | ~$0.50 |│ Azure Function App (Python)                                     │
+
+| Application Insights | Basic | ~$2.00 |
+
+| **Total** | | **~$3.00/month** |│ • Query historical utilization (last 15 min)                   │### Components
+
+
+
+---│ • Calculate sustained threshold violations                     │
+
+
+
+## Monitoring and Troubleshooting│ • Return scaling recommendations                               │- ✅ **Managed Identity Authentication**: Secure authentication using Azure Managed Identity (no secrets to manage)- ✅ **Configurable Thresholds**: Customize scale-up and scale-down SKUs via ARM template parameters
+
+
+
+### View Logs└────────────────────────────┬────────────────────────────────────┘
+
+
+
+- **Function App**: Azure Portal → Function App → Application Insights → Logs                             │ HTTPS1. **Azure Function App** (Python 3.11)
+
+- **Logic App**: Azure Portal → Logic App → Runs history
+
+                             ▼
+
+### Common Issues
+
+┌─────────────────────────────────────────────────────────────────┐   - Queries Fabric Capacity Metrics App via Power BI REST API- ✅ **Email Notifications**: Receive detailed email alerts via Office 365 when scaling events occur- ✅ **Azure Monitor Integration**: Uses native Azure Monitor metrics for Fabric capacity
+
+| Issue | Solution |
+
+|-------|----------|│ Azure Logic App (Runs every 5 minutes)                          │
+
+| Function returns "Failed to retrieve metrics" | Verify Capacity Metrics App is installed and Function has workspace access |
+
+| Logic App fails with "Unauthorized" | Check Logic App Managed Identity has Contributor role on Fabric capacity |│ • Get current capacity SKU                                     │   - Retrieves historical CU utilization data
+
+| No email notifications | Verify Office 365 connection is authorized |
+
+│ • Call Function to check metrics                               │
+
+For detailed troubleshooting, see **[Testing Guide](TESTING-GUIDE.md)**
+
+│ • Scale up/down if recommended                                 │   - Calculates utilization percentages- ✅ **Configurable Parameters**: Customize thresholds, SKUs, and sustained duration via ARM template- ✅ **Automated Deployment**: Deploy via Azure CLI using PowerShell or Bash scripts
+
+---
+
+│ • Send email notification                                      │
+
+## Contributing
+
+└─────────────────────────────────────────────────────────────────┘   - Determines if scaling is needed based on sustained thresholds
+
+Contributions are welcome! To contribute:
 
 ```
 
+1. Fork the repository
 
+2. Create a feature branch (`git checkout -b feature/your-feature`)   - Returns scaling recommendations- ✅ **Automated Deployment**: Deploy via Azure CLI using PowerShell or Bash scripts
 
-**Option B: Bash**
+3. Commit your changes (`git commit -m 'Add feature'`)
 
-```bash2. **Azure Logic App**- ✅ **Application Insights**: Built-in monitoring and logging for Function App## Architecture
+4. Push to the branch (`git push origin feature/your-feature`)### Sustained Threshold Logic
 
-./Scripts/deploy-logicapp.sh \
-
-  -g "myRG" \   - Triggered every 5 minutes (configurable)
-
-  -c "MyCapacity" \
-
-  -w "12345678-1234-1234-1234-123456789abc" \   - Calls Function App to check metricsThe solution uses:
-
-  -e "admin@company.com"
-
-```   - Executes scale-up or scale-down operations
+5. Open a Pull Request
 
 
 
-**Option C: Azure CLI**   - Sends email notifications with detailed metrics## Architecture- **Azure Logic App** with System-assigned Managed Identity
+---
 
-```bash
+1. **Logic App triggers** every 5 minutes (configurable)
 
-az deployment group create \
+## License
 
-  --resource-group myRG \
+2. **Function App queries** Fabric Capacity Metrics App for historical data (last 15 minutes)2. **Azure Logic App**- ✅ **Application Insights**: Built-in monitoring and logging for Function App## Architecture
 
-  --template-file Templates/fabric-autoscale-template.json \3. **Office 365 Connector**- **Azure Monitor Metrics** to track Fabric capacity overload
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-  --parameters fabricCapacityName="MyCapacity" \
+3. **Function counts** how many readings exceeded the threshold
 
-                fabricWorkspaceId="12345678-..." \   - Sends email notifications with utilization statistics
+---
 
-                notificationEmail="admin@company.com"
+4. **Scaling decision** made only if:   - Triggered every 5 minutes (configurable)
 
-```### Components- **Office 365 Connector** for email notifications
+## Support
 
+   - ≥3 readings exceed threshold AND
 
+- **Issues**: [GitHub Issues](https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/issues)
 
-### 3. Post-Deployment Setup4. **Application Insights**
-
-
-
-**Deploy Function Code:**   - Monitors Function App performance and logs1. **Azure Function App** (Python 3.11)- **ARM Template** for infrastructure-as-code deployment
-
-```bash
-
-cd FunctionApp
-
-func azure functionapp publish <function-app-name> --python
-
-```### Data Flow   - Queries Fabric Capacity Metrics App via Power BI REST API
+- **Documentation**: See [Deployment Guide](DEPLOYMENT-GUIDE.md) and [Testing Guide](TESTING-GUIDE.md)   - Current utilization meets threshold AND   - Calls Function App to check metricsThe solution uses:
 
 
 
-**Authorize Office 365:**
-
-1. Azure Portal → Resource Group → API Connection (`office365-...`)
-
-2. Edit API connection → Authorize → Sign in```   - Retrieves historical CU utilization data## Prerequisites
+---   - Current SKU ≠ target SKU
 
 
 
-**Assign Permissions:**┌─────────────────────────────────────────────────────────────────┐
-
-```bash
-
-# Logic App → Fabric Capacity (Contributor role)│ Fabric Capacity Metrics App (Power BI Semantic Model)          │   - Calculates utilization percentagesBefore deploying, ensure you have:
-
-az role assignment create \
-
-  --assignee <logic-app-principal-id> \│ - Stores real-time CU utilization data                         │
-
-  --role Contributor \
-
-  --scope /subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Fabric/capacities/<capacity-name>└────────────────────────────┬────────────────────────────────────┘   - Determines if scaling is needed based on sustained thresholds1. ✅ Azure subscription with an active Fabric capacity
+## Additional Resources   - Executes scale-up or scale-down operations
 
 
 
-# Function App → Workspace (grant access via Fabric workspace settings)                             │
+### Microsoft Fabric**Example:**
+
+- [Microsoft Fabric Capacity Metrics App](https://learn.microsoft.com/fabric/enterprise/metrics-app)
+
+- [Fabric Capacity Management](https://learn.microsoft.com/fabric/enterprise/capacity-settings-management)- **Readings over 15 min**: `[85%, 87%, 82%, 90%]`   - Sends email notifications with detailed metrics## Architecture- **Azure Logic App** with System-assigned Managed Identity
+
+
+
+### Azure Services- **Threshold**: 80%
+
+- [Azure Logic Apps Documentation](https://docs.microsoft.com/azure/logic-apps/)
+
+- [Azure Functions Python Developer Guide](https://docs.microsoft.com/azure/azure-functions/functions-reference-python)- **Result**: Scale Up ✅ (4 readings above threshold)
+
+- [Power BI REST API](https://learn.microsoft.com/rest/api/power-bi/)
+
+
+
+---
+
+vs.3. **Office 365 Connector**- **Azure Monitor Metrics** to track Fabric capacity overload
+
+**Ready to get started?** Click the Deploy to Azure button above or check out the **[Deployment Guide](DEPLOYMENT-GUIDE.md)** for detailed instructions.
+
+
+
+- **Readings over 15 min**: `[85%, 60%, 70%, 65%]`   - Sends email notifications with utilization statistics
+
+- **Threshold**: 80%
+
+- **Result**: No action ❌ (only 1 reading above threshold)### Components- **Office 365 Connector** for email notifications
+
+
+
+---4. **Application Insights**
+
+
+
+## Deployment Options   - Monitors Function App performance and logs1. **Azure Function App** (Python 3.11)- **ARM Template** for infrastructure-as-code deployment
+
+
+
+For detailed step-by-step instructions, see **[DEPLOYMENT-GUIDE.md](DEPLOYMENT-GUIDE.md)**
+
+
+
+### Option 1: Deploy to Azure Button (Quickest)### Data Flow   - Queries Fabric Capacity Metrics App via Power BI REST API
+
+
+
+Click the **Deploy to Azure** button above. After infrastructure deployment:
+
+1. Deploy Function App code manually
+
+2. Authorize Office 365 connection```   - Retrieves historical CU utilization data## Prerequisites
+
+3. Assign permissions to Managed Identities
+
+┌─────────────────────────────────────────────────────────────────┐
+
+### Option 2: PowerShell Script (Windows)
+
+│ Fabric Capacity Metrics App (Power BI Semantic Model)          │   - Calculates utilization percentagesBefore deploying, ensure you have:
+
+```powershell
+
+.\Scripts\deploy-logicapp.ps1 `│ - Stores real-time CU utilization data                         │
+
+  -ResourceGroup "myRG" `
+
+  -CapacityName "MyCapacity" `└────────────────────────────┬────────────────────────────────────┘   - Determines if scaling is needed based on sustained thresholds1. ✅ Azure subscription with an active Fabric capacity
+
+  -WorkspaceId "12345678-1234-1234-1234-123456789abc" `
+
+  -Email "admin@company.com"                             │
 
 ```
 
                              │ Power BI REST API   - Returns scaling recommendations2. ✅ Azure CLI installed ([Download](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli))
 
-**Enable Logic App:**
-
-Azure Portal → Logic App → Enable                             ▼
-
-
-
-## Configuration┌─────────────────────────────────────────────────────────────────┐3. ✅ Contributor or Owner role on the resource group
-
-
-
-| Parameter | Default | Description |│ Azure Function App (Python)                                     │
-
-|-----------|---------|-------------|
-
-| `scaleUpThreshold` | 80 | CU utilization % to trigger scale up |│ - Query historical utilization (last 15 min)                   │2. **Azure Logic App**4. ✅ Office 365 account for email notifications
-
-| `scaleDownThreshold` | 40 | CU utilization % to trigger scale down |
-
-| `scaleUpSku` | F128 | Target SKU for scale up |│ - Calculate sustained high/low threshold violations            │
-
-| `scaleDownSku` | F64 | Target SKU for scale down |
-
-| `sustainedMinutes` | 15 | Minutes threshold must be sustained |│ - Return scaling recommendations                               │   - Triggered every 5 minutes (configurable)
-
-
-
-## How It Works└────────────────────────────┬────────────────────────────────────┘
-
-
-
-**Sustained Threshold Logic:**                             │   - Calls Function App to check metrics## Quick Deploy
-
-1. Every 5 minutes, Logic App calls Function App
-
-2. Function queries Capacity Metrics App for last 15 minutes                             │ HTTP Call
-
-3. Counts how many readings exceed threshold
-
-4. Scales only if ≥3 readings are high/low AND current utilization meets threshold                             ▼   - Executes scale-up or scale-down operations
-
-
-
-**Example:**┌─────────────────────────────────────────────────────────────────┐
-
-- Readings: `[85%, 87%, 82%, 90%]` → Scale Up ✅ (3+ high readings)
-
-- Readings: `[85%, 60%, 70%, 65%]` → No action ❌ (only 1 high reading)│ Azure Logic App                                                  │   - Sends email notifications with detailed metricsClick the button below to deploy directly to Azure:
-
-
-
-## Monitoring│ - Every 5 minutes: Call Function App                           │
-
-
-
-**View Function Logs:**  │ - If shouldScaleUp=true: Scale capacity up                     │
-
-Azure Portal → Function App → Application Insights → Logs
-
-│ - If shouldScaleDown=true: Scale capacity down                 │
-
-**View Logic App Runs:**  
-
-Azure Portal → Logic App → Runs history│ - Send email notification with metrics                         │3. **Office 365 Connector**[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
-
-
-
-**Check Costs:**  └─────────────────────────────────────────────────────────────────┘
-
-~$3/month (Function App + Logic App + Storage + App Insights)
-
-```   - Sends email notifications with utilization statistics
-
-## Troubleshooting
-
-
-
-| Issue | Solution |
-
-|-------|----------|## PrerequisitesThis will open the Azure Portal with a pre-filled deployment form. You'll need to provide:
-
-| Function returns "Failed to retrieve metrics" | Verify Capacity Metrics App is installed and Function has workspace access |
-
-| Logic App fails with "Unauthorized" | Check Logic App has Contributor role on Fabric capacity |
-
-| No emails received | Verify Office 365 connection is authorized |
-
-Before deploying, ensure you have:4. **Application Insights**- Resource group
-
-## Documentation
-
-
-
-- [Deployment Guide](DEPLOYMENT-GUIDE.md) - Detailed deployment instructions
-
-- [Testing Guide](TESTING-GUIDE.md) - Testing procedures and validation1. ✅ Azure subscription with an active Fabric capacity   - Monitors Function App performance and logs- Fabric capacity name
-
-- [Function App README](FunctionApp/README.md) - Function App details
-
-2. ✅ **Fabric Capacity Metrics App** installed in a Fabric workspace
-
-## Resources
-
-3. ✅ Azure CLI installed ([Download](https://docs.microsoft.com/cli/azure/install-azure-cli))- Notification email address
-
-- [Fabric Capacity Metrics App](https://learn.microsoft.com/fabric/enterprise/metrics-app)
-
-- [Azure Logic Apps](https://docs.microsoft.com/azure/logic-apps/)4. ✅ Azure Functions Core Tools ([Download](https://docs.microsoft.com/azure/azure-functions/functions-run-local)) - for Function App deployment
-
-- [Azure Functions Python Guide](https://docs.microsoft.com/azure/azure-functions/functions-reference-python)
-
-5. ✅ Contributor or Owner role on the resource group### Data Flow- (Optional) Scale-up/down SKUs and other parameters
-
-## License
-
-6. ✅ Office 365 account for email notifications
-
-MIT License
-
-7. ✅ Python 3.11 (for local development/testing)```
-
-
-
-### Setting Up Fabric Capacity Metrics App┌─────────────────────────────────────────────────────────────────┐**Important:** After deployment, you must:
-
-
-
-1. Go to your Fabric workspace in Power BI/Fabric portal│ Fabric Capacity Metrics App (Power BI Semantic Model)          │1. Authorize the Office 365 connection in Azure Portal
-
-2. Navigate to AppSource and install **Microsoft Fabric Capacity Metrics**
-
-3. Configure the app to monitor your Fabric capacity│ - Stores real-time CU utilization data                         │2. Assign Contributor role to the Logic App's Managed Identity
-
-4. Note the **Workspace ID** (found in workspace settings or URL)
-
-└────────────────────────────┬────────────────────────────────────┘3. Enable the Logic App
-
-## Quick Deploy
-
-                             │
-
-Click the button below to deploy directly to Azure:
-
-                             │ Power BI REST APISee the [Post-Deployment Configuration](#post-deployment-configuration) section below for details.
-
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+Automatically deploys infrastructure and attempts to deploy Function App code.
 
                              ▼
 
-This will open the Azure Portal with a pre-filled deployment form. You'll need to provide:
+### Option 3: Bash Script (Linux/Mac/WSL)
 
-┌─────────────────────────────────────────────────────────────────┐---
+┌─────────────────────────────────────────────────────────────────┐3. ✅ Contributor or Owner role on the resource group
 
-- **Resource group**
+```bash
 
-- **Fabric capacity name**│ Azure Function App (Python)                                     │
+./Scripts/deploy-logicapp.sh \│ Azure Function App (Python)                                     │
 
-- **Fabric workspace ID** (where Capacity Metrics App is installed)
+  -g "myRG" \
+
+  -c "MyCapacity" \│ - Query historical utilization (last 15 min)                   │2. **Azure Logic App**4. ✅ Office 365 account for email notifications
+
+  -w "12345678-1234-1234-1234-123456789abc" \
+
+  -e "admin@company.com"│ - Calculate sustained high/low threshold violations            │
+
+```
+
+│ - Return scaling recommendations                               │   - Triggered every 5 minutes (configurable)
+
+Automatically deploys infrastructure and attempts to deploy Function App code.
+
+└────────────────────────────┬────────────────────────────────────┘
+
+### Option 4: Manual Azure CLI
+
+                             │   - Calls Function App to check metrics## Quick Deploy
+
+```bash
+
+az deployment group create \                             │ HTTP Call
+
+  --resource-group myRG \
+
+  --template-file Templates/fabric-autoscale-template.json \                             ▼   - Executes scale-up or scale-down operations
+
+  --parameters fabricCapacityName="MyCapacity" \
+
+               fabricWorkspaceId="12345678-..." \┌─────────────────────────────────────────────────────────────────┐
+
+               notificationEmail="admin@company.com"
+
+```│ Azure Logic App                                                  │   - Sends email notifications with detailed metricsClick the button below to deploy directly to Azure:
+
+
+
+Full control over deployment parameters.│ - Every 5 minutes: Call Function App                           │
+
+
+
+### Prerequisites│ - If shouldScaleUp=true: Scale capacity up                     │
+
+
+
+- Azure subscription with Fabric capacity│ - If shouldScaleDown=true: Scale capacity down                 │
+
+- **Fabric Capacity Metrics App** installed in a workspace ([Learn more](https://learn.microsoft.com/fabric/enterprise/metrics-app))
+
+- Azure CLI and Azure Functions Core Tools installed│ - Send email notification with metrics                         │3. **Office 365 Connector**[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+
+
+
+---└─────────────────────────────────────────────────────────────────┘
+
+
+
+## Cost Estimation```   - Sends email notifications with utilization statistics
+
+
+
+Estimated monthly costs with default configuration (5-minute recurrence):
+
+
+
+| Resource | Pricing Tier | Estimated Cost |## PrerequisitesThis will open the Azure Portal with a pre-filled deployment form. You'll need to provide:
+
+|----------|--------------|----------------|
+
+| Azure Function App | Consumption Plan | ~$0.20 |
+
+| Azure Logic App | Consumption (288 runs/day) | ~$0.30 |
+
+| Storage Account | Standard LRS | ~$0.50 |Before deploying, ensure you have:4. **Application Insights**- Resource group
+
+| Application Insights | Basic (< 5GB/month) | ~$2.00 |
+
+| **Total** | | **~$3.00/month** |
+
+
+
+*Costs may vary based on region and actual usage*1. ✅ Azure subscription with an active Fabric capacity   - Monitors Function App performance and logs- Fabric capacity name
+
+
+
+---2. ✅ **Fabric Capacity Metrics App** installed in a Fabric workspace
+
+
+
+## Monitoring and Troubleshooting3. ✅ Azure CLI installed ([Download](https://docs.microsoft.com/cli/azure/install-azure-cli))- Notification email address
+
+
+
+### View Function App Logs4. ✅ Azure Functions Core Tools ([Download](https://docs.microsoft.com/azure/azure-functions/functions-run-local)) - for Function App deployment
+
+
+
+**Azure Portal** → **Function App** → **Application Insights** → **Logs**5. ✅ Contributor or Owner role on the resource group### Data Flow- (Optional) Scale-up/down SKUs and other parameters
+
+
+
+Query recent executions:6. ✅ Office 365 account for email notifications
+
+```kusto
+
+traces7. ✅ Python 3.11 (for local development/testing)```
+
+| where timestamp > ago(1h)
+
+| where message contains "Fabric Auto-Scale"
+
+| order by timestamp desc
+
+```### Setting Up Fabric Capacity Metrics App┌─────────────────────────────────────────────────────────────────┐**Important:** After deployment, you must:
+
+
+
+### View Logic App Runs
+
+
+
+**Azure Portal** → **Logic App** → **Runs history**1. Go to your Fabric workspace in Power BI/Fabric portal│ Fabric Capacity Metrics App (Power BI Semantic Model)          │1. Authorize the Office 365 connection in Azure Portal
+
+
+
+Click any run to see detailed execution flow and outputs.2. Navigate to AppSource and install **Microsoft Fabric Capacity Metrics**
+
+
+
+### Common Issues3. Configure the app to monitor your Fabric capacity│ - Stores real-time CU utilization data                         │2. Assign Contributor role to the Logic App's Managed Identity
+
+
+
+| Issue | Solution |4. Note the **Workspace ID** (found in workspace settings or URL)
+
+|-------|----------|
+
+| **Function returns "Failed to retrieve capacity metrics"** | Verify Capacity Metrics App is installed and Function App Managed Identity has workspace access |└────────────────────────────┬────────────────────────────────────┘3. Enable the Logic App
+
+| **Logic App fails with "Unauthorized"** | Check Logic App Managed Identity has Contributor role on Fabric capacity |
+
+| **No email notifications received** | Verify Office 365 connection is authorized in Azure Portal |## Quick Deploy
+
+| **Function App timeout** | Check Application Insights for errors; verify workspace ID is correct |
+
+| **Scaling doesn't occur** | Check sustained threshold is met (≥3 readings) and current SKU ≠ target SKU |                             │
+
+
+
+For detailed troubleshooting, see **[TESTING-GUIDE.md](TESTING-GUIDE.md)**Click the button below to deploy directly to Azure:
+
+
+
+---                             │ Power BI REST APISee the [Post-Deployment Configuration](#post-deployment-configuration) section below for details.
+
+
+
+## Contributing[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+
+
+
+Contributions are welcome! To contribute:                             ▼
+
+
+
+1. Fork the repositoryThis will open the Azure Portal with a pre-filled deployment form. You'll need to provide:
+
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+
+3. Commit your changes (`git commit -m 'Add amazing feature'`)┌─────────────────────────────────────────────────────────────────┐---
+
+4. Push to the branch (`git push origin feature/amazing-feature`)
+
+5. Open a Pull Request- **Resource group**
+
+
+
+Please ensure:- **Fabric capacity name**│ Azure Function App (Python)                                     │
+
+- Code follows existing style and conventions
+
+- Documentation is updated- **Fabric workspace ID** (where Capacity Metrics App is installed)
+
+- Testing guide is updated for new features
 
 - **Notification email address**│ - Query historical utilization (last 15 min)                   │## Alternative Deployment Methods
 
+---
+
 - (Optional) Scale-up/down SKUs, thresholds, and sustained duration
+
+## License
 
 │ - Calculate sustained high/low threshold violations            │
 
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
 **Important:** After deployment, you must:
+
+---
 
 │ - Return scaling recommendations                               │### Option 1: PowerShell Deployment (Windows)
 
+## Support
+
 1. Deploy the Function App code (see instructions below)
+
+### Get Help
 
 2. Authorize the Office 365 connection in Azure Portal└────────────────────────────┬────────────────────────────────────┘```powershell
 
-3. Assign permissions to Logic App and Function App Managed Identities
+- **Issues**: [GitHub Issues](https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/issues)
 
-4. Enable the Logic App                             │# Clone the repository
-
-
-
-See the [Post-Deployment Configuration](#post-deployment-configuration) section below for details.                             │ HTTP Callgit clone https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp.git
+- **Questions**: Open a GitHub Discussion or Issue3. Assign permissions to Logic App and Function App Managed Identities
 
 
 
----                             ▼cd Fabric_Auto-Scaling_with_LogicApp
+### Documentation4. Enable the Logic App                             │# Clone the repository
 
 
 
-## Alternative Deployment Methods┌─────────────────────────────────────────────────────────────────┐
+- **[Deployment Guide](DEPLOYMENT-GUIDE.md)** - Complete deployment instructions and post-deployment configuration
+
+- **[Testing Guide](TESTING-GUIDE.md)** - Testing procedures, validation steps, and troubleshooting
+
+- **[Function App README](FunctionApp/README.md)** - Function App details and local developmentSee the [Post-Deployment Configuration](#post-deployment-configuration) section below for details.                             │ HTTP Callgit clone https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp.git
 
 
 
-### Option 1: PowerShell Deployment (Windows)│ Azure Logic App                                                  │# Run the deployment script
+---
 
 
 
-```powershell│ - Every 5 minutes: Call Function App                           │.\Scripts\deploy-logicapp.ps1 `
+## Additional Resources---                             ▼cd Fabric_Auto-Scaling_with_LogicApp
+
+
+
+### Microsoft Fabric
+
+- [Microsoft Fabric Capacity Metrics App](https://learn.microsoft.com/fabric/enterprise/metrics-app)
+
+- [Fabric Capacity Management](https://learn.microsoft.com/fabric/enterprise/capacity-settings-management)## Alternative Deployment Methods┌─────────────────────────────────────────────────────────────────┐
+
+
+
+### Azure Services
+
+- [Azure Logic Apps Documentation](https://docs.microsoft.com/azure/logic-apps/)
+
+- [Azure Functions Python Developer Guide](https://docs.microsoft.com/azure/azure-functions/functions-reference-python)### Option 1: PowerShell Deployment (Windows)│ Azure Logic App                                                  │# Run the deployment script
+
+- [Azure Managed Identity Overview](https://docs.microsoft.com/azure/active-directory/managed-identities-azure-resources/overview)
+
+
+
+### APIs
+
+- [Power BI REST API](https://learn.microsoft.com/rest/api/power-bi/)```powershell│ - Every 5 minutes: Call Function App                           │.\Scripts\deploy-logicapp.ps1 `
+
+- [Azure Resource Manager REST API](https://docs.microsoft.com/rest/api/resources/)
 
 # Clone the repository
 
+---
+
 git clone https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp.git│ - If shouldScaleUp=true: Scale capacity up                     │  -ResourceGroup "myResourceGroup" `
+
+**Ready to get started?** Check out the **[Deployment Guide](DEPLOYMENT-GUIDE.md)** for step-by-step instructions!
 
 cd Fabric_Auto-Scaling_with_LogicApp
 
