@@ -114,6 +114,7 @@
         "minimumTlsVersion": "TLS1_2",
         "allowBlobPublicAccess": false,
         "supportsHttpsTrafficOnly": true,
+        "publicNetworkAccess": "Enabled",
         "networkAcls": {
           "bypass": "AzureServices",
           "defaultAction": "Allow"
@@ -176,6 +177,10 @@
             {
               "name": "WEBSITE_CONTENTSHARE",
               "value": "[toLower(parameters('functionAppName'))]"
+            },
+            {
+              "name": "WEBSITE_CONTENTOVERVNET",
+              "value": "0"
             },
             {
               "name": "FUNCTIONS_EXTENSION_VERSION",
