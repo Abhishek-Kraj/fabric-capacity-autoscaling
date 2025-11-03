@@ -1,0 +1,29 @@
+# Sensitive configuration files
+fabric-autoscale-parameters.json
+*.parameters.json
+!*.example.json
+
+# Azure CLI/PowerShell outputs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules (if any tooling is added later)
+node_modules/
+
+# Build outputs
+bin/
+obj/

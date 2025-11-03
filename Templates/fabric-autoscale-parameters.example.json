@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "logicAppName": {
+      "value": "FabricAutoScaleLogicApp"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "fabricCapacityName": {
+      "value": "YOUR_FABRIC_CAPACITY_NAME"
+    },
+    "notificationEmail": {
+      "value": "admin@yourdomain.com"
+    },
+    "teamsWebhookUrl": {
+      "value": "https://outlook.office.com/webhook/YOUR_WEBHOOK_URL"
+    },
+    "scaleUpSku": {
+      "value": "F128"
+    },
+    "scaleDownSku": {
+      "value": "F64"
+    },
+    "scaleUpThreshold": {
+      "value": 80
+    },
+    "scaleDownThreshold": {
+      "value": 40
+    }
+  }
+}
