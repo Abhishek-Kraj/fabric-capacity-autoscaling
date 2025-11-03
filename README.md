@@ -27,8 +27,17 @@ This solution automates scaling Microsoft Fabric capacity based on CU utilizatio
    ```bash
    az deployment group create \
      --resource-group <RG_NAME> \
-     --template-file Templates/fabric-autoscale-template.json \
-     --parameters subscriptionId=<SUB_ID> resourceGroup=<RG_NAME> fabricCapacityName=<CAPACITY_NAME> notificationEmail=<EMAIL>
+     --template-file fabric-autoscale-template.json \
+     --parameters \
+       subscriptionId=<SUB_ID> \
+       resourceGroup=<RG_NAME> \
+       fabricCapacityName=<FABRIC_CAPACITY_NAME> \
+       notificationEmail=<EMAIL> \
+       keyVaultName=<KEYVAULT_NAME> \
+       powerBiDatasetId=<METRICS_DATASET_GUID> \
+       powerBiQueryText="EVALUATE TOPN(1, SUMMARIZECOLUMNS('Time'[TimeMinute], \"CU_Pct\", [Autoscale CU usage %]), 'Time'[TimeMinute], DESC)" \
+       powerBiResultColumnName=CU_Pct \
+       coolDownMinutes=30 
 
 4. Configure Office 365 connector in Logic App designer.
 
