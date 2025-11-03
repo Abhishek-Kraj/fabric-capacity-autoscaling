@@ -1,5 +1,7 @@
 # Microsoft Fabric Auto-Scaling with Azure Logic Apps
 
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+
 ## Overview
 This solution automates scaling Microsoft Fabric capacity based on overload metrics using Azure Logic Apps with Managed Identity authentication. The Logic App monitors your Fabric capacity and automatically scales up or down based on utilization.
 
@@ -25,7 +27,28 @@ Before deploying, ensure you have:
 3. ✅ Contributor or Owner role on the resource group
 4. ✅ Office 365 account for email notifications
 
-## Deployment Steps
+## Quick Deploy
+
+Click the button below to deploy directly to Azure:
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+
+This will open the Azure Portal with a pre-filled deployment form. You'll need to provide:
+- Resource group
+- Fabric capacity name
+- Notification email address
+- (Optional) Scale-up/down SKUs and other parameters
+
+**Important:** After deployment, you must:
+1. Authorize the Office 365 connection in Azure Portal
+2. Assign Contributor role to the Logic App's Managed Identity
+3. Enable the Logic App
+
+See the [Post-Deployment Configuration](#post-deployment-configuration) section below for details.
+
+---
+
+## Alternative Deployment Methods
 
 ### Option 1: PowerShell Deployment (Windows)
 ```powershell
