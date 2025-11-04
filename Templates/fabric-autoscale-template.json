@@ -79,13 +79,22 @@
         "description": "SKU to scale down to (e.g., F2, F4, F8, F16, F32, F64)"
       }
     },
-    "sustainedMinutes": {
+    "scaleUpMinutes": {
       "type": "int",
       "defaultValue": 5,
       "minValue": 1,
       "maxValue": 15,
       "metadata": {
-        "description": "Number of minutes a threshold must be sustained before scaling (uses 30-second data points from Capacity Metrics)"
+        "description": "Minutes utilization must stay above threshold before scaling UP (default: 5, max: 15). Uses 30-second data points."
+      }
+    },
+    "scaleDownMinutes": {
+      "type": "int",
+      "defaultValue": 10,
+      "minValue": 1,
+      "maxValue": 30,
+      "metadata": {
+        "description": "Minutes utilization must stay below threshold before scaling DOWN (default: 10, max: 30). Uses 30-second data points."
       }
     },
     "checkIntervalMinutes": {
@@ -208,7 +217,10 @@
             "scaleDownSku": {
               "type": "String"
             },
-            "sustainedMinutes": {
+            "scaleUpMinutes": {
+              "type": "Int"
+            },
+            "scaleDownMinutes": {
               "type": "Int"
             },
             "emailRecipient": {
@@ -225,19 +237,6 @@
             }
           },
           "actions": {
-            "Initialize_StartTime": {
-              "type": "InitializeVariable",
-              "inputs": {
-                "variables": [
-                  {
-                    "name": "startTime",
-                    "type": "string",
-                    "value": "@{addMinutes(utcNow(), mul(parameters('sustainedMinutes'), -1))}"
-                  }
-                ]
-              },
-              "runAfter": {}
-            },
             "Get_Current_Capacity_Info": {
               "type": "Http",
               "inputs": {
@@ -248,11 +247,7 @@
                   "audience": "https://management.azure.com/"
                 }
               },
-              "runAfter": {
-                "Initialize_StartTime": [
-                  "Succeeded"
-                ]
-              }
+              "runAfter": {}
             },
             "Parse_Capacity_Info": {
               "type": "ParseJson",
@@ -304,7 +299,7 @@
                 "body": {
                   "queries": [
                     {
-                      "query": "EVALUATE TOPN(40, 'Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp], DESC)"
+                      "query": "EVALUATE TOPN(@{mul(parameters('scaleDownMinutes'), 2)}, 'Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp], DESC)"
                     }
                   ],
                   "serializerSettings": {
@@ -521,7 +516,7 @@
                   {
                     "greaterOrEquals": [
                       "@variables('sustainedHighCount')",
-                      10
+                      "@mul(parameters('scaleUpMinutes'), 2)"
                     ]
                   },
                   {
@@ -568,7 +563,7 @@
                     "body": {
                       "To": "@parameters('emailRecipient')",
                       "Subject": "Fabric Capacity Scaled UP - @{parameters('fabricCapacityName')}",
-                      "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED UP</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleUpSku')}</p><p><strong>Trigger:</strong> Sustained high utilization (@{variables('sustainedHighCount')} violations over @{parameters('sustainedMinutes')} minutes)</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleUpThreshold')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p>",
+                      "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED UP</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleUpSku')}</p><p><strong>Trigger:</strong> @{variables('sustainedHighCount')} data points above threshold over @{parameters('scaleUpMinutes')} minutes</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleUpThreshold')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p>",
                       "Importance": "High"
                     }
                   },
@@ -593,7 +588,7 @@
                         {
                           "greaterOrEquals": [
                             "@variables('sustainedLowCount')",
-                            20
+                            "@mul(parameters('scaleDownMinutes'), 2)"
                           ]
                         },
                         {
@@ -640,7 +635,7 @@
                           "body": {
                             "To": "@parameters('emailRecipient')",
                             "Subject": "Fabric Capacity Scaled DOWN - @{parameters('fabricCapacityName')}",
-                            "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED DOWN</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleDownSku')}</p><p><strong>Trigger:</strong> Sustained low utilization (@{variables('sustainedLowCount')} violations over @{parameters('sustainedMinutes')} minutes)</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleDownThreshold')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p>",
+                            "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED DOWN</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleDownSku')}</p><p><strong>Trigger:</strong> @{variables('sustainedLowCount')} data points below threshold over @{parameters('scaleDownMinutes')} minutes</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleDownThreshold')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p>",
                             "Importance": "Normal"
                           }
                         },
@@ -694,8 +689,11 @@
           "scaleDownSku": {
             "value": "[parameters('scaleDownSku')]"
           },
-          "sustainedMinutes": {
-            "value": "[parameters('sustainedMinutes')]"
+          "scaleUpMinutes": {
+            "value": "[parameters('scaleUpMinutes')]"
+          },
+          "scaleDownMinutes": {
+            "value": "[parameters('scaleDownMinutes')]"
           },
           "emailRecipient": {
             "value": "[parameters('emailRecipient')]"

@@ -40,7 +40,10 @@ param(
     [string]$ScaleDownSku = "F64",
     
     [Parameter(Mandatory=$false)]
-    [int]$SustainedMinutes = 15,
+    [int]$ScaleUpMinutes = 5,
+    
+    [Parameter(Mandatory=$false)]
+    [int]$ScaleDownMinutes = 10,
     
     [Parameter(Mandatory=$false)]
     [int]$CheckIntervalMinutes = 5
@@ -64,9 +67,8 @@ Write-Host "Fabric Capacity: $FabricCapacityName" -ForegroundColor White
 Write-Host "Fabric RG: $FabricResourceGroup" -ForegroundColor White
 Write-Host "Workspace ID: $FabricWorkspaceId" -ForegroundColor White
 Write-Host "Email: $EmailRecipient" -ForegroundColor White
-Write-Host "Scale Up: >=$ScaleUpThreshold% -> $ScaleUpSku" -ForegroundColor Green
-Write-Host "Scale Down: <=$ScaleDownThreshold% -> $ScaleDownSku" -ForegroundColor Yellow
-Write-Host "Sustained: $SustainedMinutes minutes (min 3 violations)" -ForegroundColor White
+Write-Host "Scale Up: >=$ScaleUpThreshold% for $ScaleUpMinutes min -> $ScaleUpSku" -ForegroundColor Green
+Write-Host "Scale Down: <=$ScaleDownThreshold% for $ScaleDownMinutes min -> $ScaleDownSku" -ForegroundColor Yellow
 Write-Host "Check Interval: $CheckIntervalMinutes minutes" -ForegroundColor White
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
@@ -97,7 +99,8 @@ $deployment = az deployment group create `
         scaleDownThreshold=$ScaleDownThreshold `
         scaleUpSku=$ScaleUpSku `
         scaleDownSku=$ScaleDownSku `
-        sustainedMinutes=$SustainedMinutes `
+        scaleUpMinutes=$ScaleUpMinutes `
+        scaleDownMinutes=$ScaleDownMinutes `
         checkIntervalMinutes=$CheckIntervalMinutes `
         location=$Location `
     --query 'properties.outputs' `
@@ -155,7 +158,8 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "Deployment Complete!" -ForegroundColor Green
     Write-Host "=====================================" -ForegroundColor Green
     Write-Host "The Logic App will check capacity metrics every $CheckIntervalMinutes minutes." -ForegroundColor White
-    Write-Host "Scaling occurs when threshold violations are sustained for $SustainedMinutes minutes (>=3 violations)." -ForegroundColor White
+    Write-Host "Scale-UP triggers after $ScaleUpMinutes minutes above threshold." -ForegroundColor White
+    Write-Host "Scale-DOWN triggers after $ScaleDownMinutes minutes below threshold." -ForegroundColor White
     Write-Host ""
     
 } else {
