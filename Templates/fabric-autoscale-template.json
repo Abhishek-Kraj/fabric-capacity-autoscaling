@@ -176,6 +176,10 @@
               "value": "managedidentity"
             },
             {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "https://raw.githubusercontent.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/master/Releases/functionapp.zip"
+            },
+            {
               "name": "FUNCTIONS_EXTENSION_VERSION",
               "value": "~4"
             },
