@@ -43,21 +43,22 @@ The architecture ensures that scaling only occurs when utilization thresholds ar
 1. Click the **Fork** button at the top of this GitHub page
 2. This creates your own copy under your GitHub account
 
-#### Step 2: Update ARM Template
-In your forked repository, update `Templates/fabric-autoscale-template.json`:
+#### Step 2: Deploy Infrastructure
+Click the "Deploy to Azure" button to deploy the infrastructure:
 
-Find this line (around line 130):
-```json
-"WEBSITE_RUN_FROM_PACKAGE": "https://raw.githubusercontent.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/master/Releases/functionapp.zip"
+ [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+
+#### Step 3: Upload Function App Code
+After infrastructure deployment completes, upload the Function App package:
+
+```powershell
+# From the repository root directory
+.\Scripts\upload-function-package.ps1 `
+    -ResourceGroupName "rg-fabric-autoscale" `
+    -StorageAccountName "stfabricscalexxxxx"
 ```
 
-Replace with your GitHub username:
-```json
-"WEBSITE_RUN_FROM_PACKAGE": "https://raw.githubusercontent.com/YOUR-USERNAME/Fabric_Auto-Scaling_with_LogicApp/master/Releases/functionapp.zip"
-```
-
-#### Step 3: Deploy from Your Fork
-Click the "Deploy to Azure" button **from your forked repository's README**.
+The Function App will automatically detect and deploy the code within 1-2 minutes.
 
 > **Why Fork?**
 > - ✅ Isolates your deployment from upstream changes
