@@ -13,12 +13,9 @@
 ## Prerequisites
 
 ### Required Software
-**None required for Azure Portal deployment!** The one-click deployment handles everything automatically.
-
-Optional (for advanced scenarios):
-- **Azure CLI** 2.50.0 or later - Only for PowerShell/Bash scripts or manual verification
-- **PowerShell 7+** - Only for Windows deployment scripts
-- **Git** - Only if you want to clone and modify the code
+- **GitHub Account** - Required to fork the repository
+- **Azure CLI** 2.50.0 or later (optional, for command-line deployment)
+- **Git** (optional, for local repository management)
 
 ### Required Azure Resources
 - **Azure Subscription** with active Fabric capacity
@@ -34,8 +31,6 @@ Optional (for advanced scenarios):
 ---
 
 ## Pre-Deployment Setup
-
-### 1. Install Fabric Capacity Metrics App
 
 The solution depends on the **Microsoft Fabric Capacity Metrics App** for accurate utilization data.
 
@@ -54,7 +49,7 @@ The solution depends on the **Microsoft Fabric Capacity Metrics App** for accura
    - Copy the **Workspace ID** (GUID format: `12345678-1234-1234-1234-123456789abc`)
    - You'll need this during deployment
 
-### 2. Prepare Deployment Parameters
+### 4. Prepare Deployment Parameters
 
 Gather the following information:
 
@@ -68,26 +63,57 @@ Gather the following information:
 | Scale Down SKU | `F64` | Target SKU for scale down |
 | Location | `eastus` | Azure region (same as capacity) |
 
-### 3. Optional: Fork the Repository
-
-**Fork only if you need to customize the code or ARM template.**
-
-Your deployment is automatically isolated since function code runs from your storage account, not GitHub. Forking is useful for:
-- Customizing Python function code
-- Modifying ARM template resources
-- Meeting organizational repository policies
-
 ---
+
+## Pre-Deployment Setup
+
+### 1. Fork This Repository
+
+**This is a required step before deployment:**
+
+1. **Go to the repository**: https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp
+2. **Click the Fork button** at the top right
+3. **Select your GitHub account** as the destination
+4. **Wait for fork to complete**
+
+> **Why fork?** The Function App downloads code from GitHub during deployment. Forking gives you full control over the code, allows customization, and ensures your deployment won't be affected by changes to the original repository.
+
+### 2. Update ARM Template (In Your Fork)
+
+After forking, update the template to use your fork:
+
+1. **Navigate to your fork** on GitHub
+2. **Open** `Templates/fabric-autoscale-template.json`
+3. **Click the edit button** (pencil icon)
+4. **Find line ~200** with `WEBSITE_RUN_FROM_PACKAGE`
+5. **Replace** the URL:
+   ```json
+   "value": "https://github.com/YOUR-USERNAME/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip"
+   ```
+   Replace `YOUR-USERNAME` with your actual GitHub username
+6. **Commit the change** directly to master
+
+### 3. Install Fabric Capacity Metrics App
 
 ## Deployment Methods
 
 ### Method 1: Azure Portal - One-Click Deployment (Recommended)
 
-**✨ Fully automated! Infrastructure AND code deployed with one click.**
+**✨ Fully automated deployment from your fork!**
 
-Click to deploy:
+**Prerequisites:** You must have completed the fork and ARM template update steps above.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+Click to deploy (replace `YOUR-USERNAME` with your GitHub username):
+
+```
+https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FYOUR-USERNAME%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json
+```
+
+Or create a custom deploy button in your fork's README:
+
+```markdown
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FYOUR-USERNAME%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
+```
 
 **Fill in the parameters:**
 - **Subscription**: Select your Azure subscription
@@ -105,11 +131,11 @@ Click **Review + create** → **Create**
 
 **What happens automatically:**
 - ✅ All Azure resources created
-- ✅ Function code downloaded from GitHub
+- ✅ Function code downloaded from **your GitHub fork**
 - ✅ Managed identity configured
 - ✅ All role assignments set up
 
-> **🔒 Security Note:** Function App downloads code directly from GitHub. For production deployments, consider forking the repository and updating the `WEBSITE_RUN_FROM_PACKAGE` URL to your fork.
+> **🔒 Security Benefit:** The code runs from your fork, giving you complete control and isolation from the original repository.
 
 ---
 
