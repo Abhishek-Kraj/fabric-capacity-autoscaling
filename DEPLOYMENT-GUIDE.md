@@ -81,11 +81,9 @@ Your deployment is automatically isolated since function code runs from your sto
 
 ## Deployment Methods
 
-### Method 1: Azure Portal - Two-Step Deployment (Recommended)
+### Method 1: Azure Portal - One-Click Deployment (Recommended)
 
-**Simple, reliable, and secure!** This two-step approach ensures consistent deployment while maintaining managed identity authentication.
-
-#### Step 1: Deploy Infrastructure
+**✨ Fully automated! Infrastructure AND code deployed with one click.**
 
 Click to deploy:
 
@@ -103,53 +101,21 @@ Click to deploy:
 
 Click **Review + create** → **Create**
 
-**⏱️ Step 1 time:** ~3-5 minutes
+**⏱️ Deployment time:** ~3-5 minutes
 
-#### Step 2: Deploy Function Code
+**What happens automatically:**
+- ✅ All Azure resources created
+- ✅ Function code downloaded from GitHub
+- ✅ Managed identity configured
+- ✅ All role assignments set up
 
-After infrastructure deployment completes, you'll see outputs with the exact command to run. 
-
-**In Azure Cloud Shell (or any terminal with Azure CLI):**
-
-```bash
-# Download the function package
-wget https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip
-
-# Upload to your storage account (replace <storage-account-name>)
-az storage blob upload \
-  --account-name <storage-account-name> \
-  --container-name deployments \
-  --name functionapp.zip \
-  --file functionapp.zip \
-  --auth-mode login \
-  --overwrite
-```
-
-Replace `<storage-account-name>` with the value from deployment outputs.
-
-**⏱️ Step 2 time:** ~1-2 minutes for upload + Function App to detect and deploy
-
-**Total deployment time:** ~5-7 minutes
-
-> **🔐 Why Two Steps?**  
-> - **Security**: Uses managed identity authentication (no storage keys)
-> - **Simplicity**: Avoids deployment script complexities and policy conflicts
-> - **Reliability**: Works in environments with strict security policies
-> - **Isolation**: Function code runs from your storage account, not GitHub
-
-#### Custom Deployment (Using Your Fork)
-
-If you forked the repository to customize, update the wget URL in Step 2:
-
-```bash
-wget https://github.com/YOUR-USERNAME/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip
-```
+> **🔒 Security Note:** Function App downloads code directly from GitHub. For production deployments, consider forking the repository and updating the `WEBSITE_RUN_FROM_PACKAGE` URL to your fork.
 
 ---
 
 ### Method 2: PowerShell Script (For Automation)
 
-For automated infrastructure deployment in CI/CD pipelines:
+For automated deployment in CI/CD pipelines:
 
 ```powershell
 # Login to Azure
@@ -169,11 +135,9 @@ az login
   -SustainedMinutes 15
 ```
 
-**What the script does**:
-1. Deploys ARM template with all infrastructure resources
-2. Displays outputs including storage account name
-
-**After the script completes**, run the function code upload command from the outputs.
+**What the script does:**
+- Deploys ARM template with all resources
+- Function code automatically downloaded from GitHub
 
 ### Method 3: Bash Script (Linux/Mac/Cloud Shell)
 
@@ -196,7 +160,9 @@ chmod +x Scripts/deploy-logicapp.sh
   -s 15
 ```
 
-**After the script completes**, run the function code upload command from the outputs.
+**What the script does:**
+- Deploys ARM template with all resources
+- Function code automatically downloaded from GitHub
 
 ### Method 4: Manual Azure CLI
 
@@ -221,44 +187,15 @@ az deployment group create \
     sustainedMinutes=15
 ```
 
-**After deployment completes**, get the storage account name from outputs:
-
-```bash
-az deployment group show \
-  --resource-group rg-fabric-autoscale \
-  --name fabric-autoscale-template \
-  --query properties.outputs.storageAccountName.value -o tsv
-```
-
-Then upload the function code using the command from the deployment outputs.
+Function code is automatically downloaded from GitHub during deployment.
 
 ---
 
 ## Post-Deployment Configuration
 
-### Step 1: Deploy Function Code (If Not Done)
+### Step 1: Verify Function App Deployment
 
-If you haven't completed the function code upload from the deployment outputs:
-
-```bash
-# Download the function package
-wget https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip
-
-# Upload to your storage account
-az storage blob upload \
-  --account-name <storage-account-name> \
-  --container-name deployments \
-  --name functionapp.zip \
-  --file functionapp.zip \
-  --auth-mode login \
-  --overwrite
-```
-
-Wait 1-2 minutes for the Function App to detect and deploy the code.
-
-### Step 2: Verify Function App Deployment
-
-Check that the function was deployed successfully:
+Wait 2-3 minutes after ARM deployment completes, then verify the function was deployed:
 
 ```bash
 # List functions
@@ -271,14 +208,14 @@ az functionapp function list \
 You should see `CheckCapacityMetrics` in the list.
 
 **If the function is not showing:**
-1. Wait 2-3 minutes for automatic deployment
+1. Wait another 2-3 minutes for automatic download and deployment
 2. Check the Function App logs in Azure Portal
-3. Restart the Function App if needed:
+3. Restart the Function App:
    ```bash
    az functionapp restart --resource-group rg-fabric-autoscale --name func-fabricscale-xxxxx
    ```
 
-### Step 3: Authorize Office 365 Connection
+### Step 2: Authorize Office 365 Connection
 
 1. Go to **Azure Portal**
 2. Navigate to **Resource Groups** → Select your resource group
@@ -288,7 +225,7 @@ You should see `CheckCapacityMetrics` in the list.
 6. Sign in with your **Office 365 account**
 7. Click **Save**
 
-### Step 4: Assign Permissions to Logic App
+### Step 3: Assign Permissions to Logic App
 
 The Logic App needs **Contributor** access to scale the Fabric capacity.
 
@@ -317,7 +254,7 @@ az role assignment list \
   --output table
 ```
 
-### Step 5: Assign Permissions to Function App
+### Step 4: Assign Permissions to Function App
 
 The Function App needs access to the Fabric workspace to query Capacity Metrics App.
 

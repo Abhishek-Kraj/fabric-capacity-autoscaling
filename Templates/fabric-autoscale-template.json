@@ -122,30 +122,7 @@
         }
       }
     },
-    {
-      "type": "Microsoft.Storage/storageAccounts/blobServices",
-      "apiVersion": "2021-09-01",
-      "name": "[concat(parameters('storageAccountName'), '/default')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
-      ],
-      "properties": {
-        "deleteRetentionPolicy": {
-          "enabled": false
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
-      "apiVersion": "2021-09-01",
-      "name": "[concat(parameters('storageAccountName'), '/default/deployments')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
-      ],
-      "properties": {
-        "publicAccess": "None"
-      }
-    },
+
     {
       "type": "Microsoft.Insights/components",
       "apiVersion": "2020-02-02",
@@ -201,11 +178,7 @@
             },
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
-              "value": "[concat('https://', parameters('storageAccountName'), '.blob.core.windows.net/deployments/functionapp.zip')]"
-            },
-            {
-              "name": "WEBSITE_RUN_FROM_PACKAGE__credential",
-              "value": "managedidentity"
+              "value": "https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip"
             },
             {
               "name": "FUNCTIONS_EXTENSION_VERSION",
@@ -231,40 +204,6 @@
         },
         "httpsOnly": true,
         "clientAffinityEnabled": false
-      }
-    },
-    {
-      "type": "Microsoft.Web/sites/config",
-      "apiVersion": "2022-03-01",
-      "name": "[concat(parameters('functionAppName'), '/authsettingsV2')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Web/sites', parameters('functionAppName'))]"
-      ],
-      "properties": {
-        "platform": {
-          "enabled": true
-        },
-        "globalValidation": {
-          "requireAuthentication": true,
-          "unauthenticatedClientAction": "Return401"
-        },
-        "identityProviders": {
-          "azureActiveDirectory": {
-            "enabled": true,
-            "isAutoProvisioned": true,
-            "registration": {
-              "openIdIssuer": "[concat('https://sts.windows.net/', subscription().tenantId, '/')]"
-            },
-            "validation": {
-              "allowedAudiences": []
-            }
-          }
-        },
-        "login": {
-          "tokenStore": {
-            "enabled": true
-          }
-        }
       }
     },
     {
@@ -671,17 +610,9 @@
       "type": "string",
       "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').InstrumentationKey]"
     },
-    "storageAccountName": {
-      "type": "string",
-      "value": "[parameters('storageAccountName')]"
-    },
-    "deploymentCommand": {
-      "type": "string",
-      "value": "[concat('az storage blob upload --account-name ', parameters('storageAccountName'), ' --container-name deployments --name functionapp.zip --file functionapp.zip --auth-mode login --overwrite')]"
-    },
     "nextSteps": {
       "type": "string",
-      "value": "[concat('Step 1: Download function code: wget https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip\nStep 2: Upload to storage: az storage blob upload --account-name ', parameters('storageAccountName'), ' --container-name deployments --name functionapp.zip --file functionapp.zip --auth-mode login --overwrite\nStep 3: Wait 1-2 minutes for Function App to deploy automatically')]"
+      "value": "Deployment complete! Function App will automatically download code from GitHub. Wait 2-3 minutes, then: 1) Authorize Office 365 connection, 2) Assign Logic App Contributor role to Fabric capacity, 3) Assign Function App access to Fabric workspace. See DEPLOYMENT-GUIDE.md for details."
     }
   }
 }

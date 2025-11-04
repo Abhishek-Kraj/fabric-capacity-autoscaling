@@ -35,53 +35,40 @@ The architecture ensures that scaling only occurs when utilization thresholds ar
 
 ## Deployment
 
-### 🚀 Two-Step Deployment - Simple & Reliable
+### ✨ One-Click Deployment - Fully Automated!
 
-**Step 1: Deploy Infrastructure (One-Click)**
+Deploy the complete solution with a single click:
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
 
-This creates all Azure resources in ~3-5 minutes:
-- ✅ Function App, Logic App, Storage Account, Application Insights
-- ✅ Managed Identity authentication configured
-- ✅ Azure AD authentication enabled
-- ✅ All role assignments set up
+**What happens automatically:**
+- ✅ Creates all Azure resources (Function App, Logic App, Storage, App Insights)
+- ✅ Downloads and deploys function code from GitHub
+- ✅ Configures managed identity authentication
+- ✅ Sets up all role assignments
 
-**Step 2: Deploy Function Code (One Command)**
+**Total deployment time: ~3-5 minutes** ⏱️
 
-After the ARM deployment completes, run this in **Azure Cloud Shell**:
-
-```bash
-wget https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip
-az storage blob upload --account-name <your-storage-account-name> --container-name deployments --name functionapp.zip --file functionapp.zip --auth-mode login --overwrite
-```
-
-Replace `<your-storage-account-name>` with the storage account name from the deployment outputs.
-
-The Function App will automatically detect and deploy the code within 1-2 minutes.
-
-**Total time: ~5-7 minutes** ⏱️
-
-> **🔐 Why Two Steps?** This avoids deployment script complexities and policy conflicts while keeping the process simple and secure with managed identity authentication.
+> **🔒 Security Note:** Function code is downloaded directly from this GitHub repository. For production, consider forking and using your own repository URL.
 
 ---
 
-### � Optional: Fork for Customization
+### 📋 Optional: Fork for Customization
+
+**You can deploy without forking** - the template works out of the box.
 
 **Fork this repository if you want to:**
 - ✏️ Customize the function code for your specific requirements
 - 🔨 Modify ARM template parameters or resources
-- 📋 Meet organizational policies requiring forked repositories
+- � Host the code in your own repository for security/compliance
 
-**How to fork and deploy:**
+**How to deploy from your fork:**
 1. Click the **Fork** button on GitHub
-2. Update the deployment script URL in `Templates/fabric-autoscale-template.json` (line ~666) to point to your fork:
+2. Update `WEBSITE_RUN_FROM_PACKAGE` in `Templates/fabric-autoscale-template.json` (line ~200):
    ```
-   'https://github.com/YOUR-USERNAME/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip'
+   "value": "https://github.com/YOUR-USERNAME/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip"
    ```
 3. Deploy using the button from your forked repository's README
-
-> **Note:** Even without forking, your deployment is isolated since the code runs from your storage account, not GitHub.
 
 ---
 
