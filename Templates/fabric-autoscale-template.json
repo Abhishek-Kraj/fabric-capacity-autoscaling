@@ -81,11 +81,11 @@
     },
     "sustainedMinutes": {
       "type": "int",
-      "defaultValue": 15,
-      "minValue": 5,
-      "maxValue": 60,
+      "defaultValue": 5,
+      "minValue": 1,
+      "maxValue": 15,
       "metadata": {
-        "description": "Number of minutes a threshold must be sustained before scaling (minimum 3 data points required)"
+        "description": "Number of minutes a threshold must be sustained before scaling (uses 30-second data points from Capacity Metrics)"
       }
     },
     "checkIntervalMinutes": {
@@ -304,7 +304,7 @@
                 "body": {
                   "queries": [
                     {
-                      "query": "EVALUATE TOPN(30, 'Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp], DESC)"
+                      "query": "EVALUATE TOPN(40, 'Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp], DESC)"
                     }
                   ],
                   "serializerSettings": {
@@ -521,7 +521,7 @@
                   {
                     "greaterOrEquals": [
                       "@variables('sustainedHighCount')",
-                      3
+                      10
                     ]
                   },
                   {
@@ -593,7 +593,7 @@
                         {
                           "greaterOrEquals": [
                             "@variables('sustainedLowCount')",
-                            3
+                            20
                           ]
                         },
                         {
