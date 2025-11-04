@@ -49,10 +49,19 @@ Click the "Deploy to Azure" button to deploy the infrastructure:
  [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
 
 #### Step 3: Upload Function App Code
-After infrastructure deployment completes, upload the Function App package:
+After infrastructure deployment completes, upload the Function App package.
+
+**Option A: From Azure Cloud Shell (No clone needed)**
+
+Copy and run this command in Azure Cloud Shell:
+
+```bash
+curl -sL https://raw.githubusercontent.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/master/Scripts/deploy-function-code-standalone.ps1 | pwsh -Command - -ResourceGroupName "rg-fabric-autoscale" -StorageAccountName "stfabricscalexxxxx"
+```
+
+**Option B: From local machine (with repository cloned)**
 
 ```powershell
-# From the repository root directory
 .\Scripts\upload-function-package.ps1 `
     -ResourceGroupName "rg-fabric-autoscale" `
     -StorageAccountName "stfabricscalexxxxx"
