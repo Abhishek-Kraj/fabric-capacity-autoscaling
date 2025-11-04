@@ -194,6 +194,10 @@
             {
               "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
               "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "WEBSITE_AUTH_AAD_ALLOWED_TENANTS",
+              "value": "[subscription().tenantId]"
             }
           ]
         },
@@ -219,14 +223,12 @@
         "identityProviders": {
           "azureActiveDirectory": {
             "enabled": true,
+            "isAutoProvisioned": true,
             "registration": {
-              "openIdIssuer": "[concat('https://sts.windows.net/', subscription().tenantId, '/')]",
-              "clientId": "[reference(resourceId('Microsoft.Web/sites', parameters('functionAppName')), '2022-03-01', 'Full').identity.principalId]"
+              "openIdIssuer": "[concat('https://sts.windows.net/', subscription().tenantId, '/')]"
             },
             "validation": {
-              "allowedAudiences": [
-                "[concat('https://', parameters('functionAppName'), '.azurewebsites.net')]"
-              ]
+              "allowedAudiences": []
             }
           }
         },
@@ -320,8 +322,7 @@
                 "method": "GET",
                 "uri": "https://@{parameters('functionAppName')}.azurewebsites.net/api/CheckCapacityMetrics?capacityName=@{parameters('fabricCapacityName')}&workspaceId=@{parameters('fabricWorkspaceId')}&scaleUpThreshold=@{parameters('scaleUpThreshold')}&scaleDownThreshold=@{parameters('scaleDownThreshold')}&sustainedMinutes=@{parameters('sustainedMinutes')}&currentSku=@{body('Parse_Capacity_Info')?['sku']?['name']}&scaleUpSku=@{parameters('scaleUpSku')}&scaleDownSku=@{parameters('scaleDownSku')}",
                 "authentication": {
-                  "type": "ManagedServiceIdentity",
-                  "audience": "https://@{parameters('functionAppName')}.azurewebsites.net"
+                  "type": "ManagedServiceIdentity"
                 }
               },
               "runAfter": {
