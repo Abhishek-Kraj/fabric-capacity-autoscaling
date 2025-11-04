@@ -35,22 +35,34 @@ The architecture ensures that scaling only occurs when utilization thresholds ar
 
 ## Deployment
 
-### ✨ One-Click Deployment - Everything Automated!
+### 🚀 Two-Step Deployment - Simple & Reliable
 
-Deploy the complete solution with a single click - **no manual steps, no scripts to run!**
+**Step 1: Deploy Infrastructure (One-Click)**
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Falexumanamonge%2FFabric_Auto-Scaling_with_LogicApp%2Fmaster%2FTemplates%2Ffabric-autoscale-template.json)
 
-**What happens automatically:**
-- ✅ Creates all Azure resources (Function App, Logic App, Storage, App Insights)
-- ✅ Downloads function code from GitHub to your storage account
-- ✅ Deploys function code to Function App from your storage
-- ✅ Configures managed identity and Azure AD authentication
-- ✅ Sets up all role assignments
+This creates all Azure resources in ~3-5 minutes:
+- ✅ Function App, Logic App, Storage Account, Application Insights
+- ✅ Managed Identity authentication configured
+- ✅ Azure AD authentication enabled
+- ✅ All role assignments set up
 
-**Deployment time:** 5-10 minutes
+**Step 2: Deploy Function Code (One Command)**
 
-> **🔐 Deployment Isolation:** Function code is stored in **your** storage account, so your deployment won't be affected by future updates to this repository unless you choose to redeploy.
+After the ARM deployment completes, run this in **Azure Cloud Shell**:
+
+```bash
+wget https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/raw/master/Releases/functionapp.zip
+az storage blob upload --account-name <your-storage-account-name> --container-name deployments --name functionapp.zip --file functionapp.zip --auth-mode login --overwrite
+```
+
+Replace `<your-storage-account-name>` with the storage account name from the deployment outputs.
+
+The Function App will automatically detect and deploy the code within 1-2 minutes.
+
+**Total time: ~5-7 minutes** ⏱️
+
+> **🔐 Why Two Steps?** This avoids deployment script complexities and policy conflicts while keeping the process simple and secure with managed identity authentication.
 
 ---
 
