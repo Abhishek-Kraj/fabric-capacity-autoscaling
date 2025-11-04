@@ -148,23 +148,6 @@ See [DEPLOYMENT-GUIDE.md](./DEPLOYMENT-GUIDE.md) for customization guidance.
 - Increase `checkIntervalMinutes` to 10 → halves Logic App costs (~$1-2/month)
 - Disable during off-hours → save 60-70%
 
-## 💡 Customization Examples
-
-### Different Thresholds for Business Hours
-
-Edit the Logic App to add conditions based on time:
-- Scale up aggressively during business hours (70% threshold, 3 min sustained)
-- Scale conservatively off-hours (85% threshold, 10 min sustained)
-
-### Multi-Tier Scaling
-
-Add nested conditions to scale to different SKUs based on utilization:
-- ≥90% → F256
-- ≥80% → F128
-- ≥70% → F64
-
-See [DEPLOYMENT-GUIDE.md](./DEPLOYMENT-GUIDE.md) for customization guidance and troubleshooting.
-
 ## 🤝 Contributing
 
 Contributions welcome! Please fork the repository, create a feature branch, and submit a pull request.
