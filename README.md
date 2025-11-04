@@ -14,7 +14,6 @@ Automatically scales your Fabric capacity up or down based on sustained CPU util
 
 ## ✨ Key Features
 
-- ✅ **No code deployment** - Pure ARM template, no function deployment packages
 - ✅ **Visual workflow** - Edit logic in Azure Logic App Designer
 - ✅ **Built-in monitoring** - Logic App run history shows every decision
 - ✅ **Flexible configuration** - Separate thresholds and timing for scale-up vs scale-down
@@ -23,25 +22,7 @@ Automatically scales your Fabric capacity up or down based on sustained CPU util
 
 ## 📊 How It Works
 
-The Logic App runs on a schedule (default: every 5 minutes) and follows this workflow:
-
-```
-1. Get current capacity SKU
-   ↓
-2. Query Capacity Metrics dataset for recent utilization (30-sec intervals)
-   ↓
-3. Count how many data points exceed thresholds
-   ↓
-4. Scale UP if:
-   - ≥ (scaleUpMinutes × 2) data points above scaleUpThreshold
-   - Current SKU ≠ target scaleUpSku
-   ↓
-5. Scale DOWN if:
-   - ≥ (scaleDownMinutes × 2) data points below scaleDownThreshold
-   - Current SKU ≠ target scaleDownSku
-   ↓
-6. Send email notification with details
-```
+The Logic App runs on a schedule (default: every 5 minutes), queries the Capacity Metrics dataset, counts data points exceeding thresholds, and scales the capacity accordingly.
 
 **Example with default settings:**
 - **Query window**: 20 minutes (scaleDownMinutes × 2 = 10 × 2 = 20 data points)
@@ -152,14 +133,19 @@ See [DEPLOYMENT-GUIDE.md](./DEPLOYMENT-GUIDE.md) for customization guidance.
 
 ## 💰 Cost Estimate
 
-**Monthly costs (East US):**
-- Logic App (Consumption): ~$86/month (5-min intervals)
+**Monthly costs (East US, approximate):**
+- Logic App (Consumption): ~$2-3/month (8,640 runs × ~10 actions per run)
 - Storage (Standard LRS): ~$0.02/month
 - Application Insights: ~$2.88/month (first 5GB free)
-- **Total: ~$89/month**
+- **Total: ~$5-6/month**
+
+**Breakdown:**
+- 5-minute intervals = 12 runs/hour × 24 hours × 30 days = 8,640 runs/month
+- ~10 actions per run (queries, conditions, parsing) = ~86,400 actions/month
+- Logic Apps pricing: $0.000025 per action after first 4,000 free
 
 **Cost optimization:**
-- Increase `checkIntervalMinutes` to 10 → halves costs
+- Increase `checkIntervalMinutes` to 10 → halves Logic App costs (~$1-2/month)
 - Disable during off-hours → save 60-70%
 
 ## 💡 Customization Examples

@@ -321,12 +321,14 @@ In the run history, expand **Query_Capacity_Metrics** action:
 | `scaleDownThreshold` | 30 | CPU % to trigger scale down |
 | `scaleUpSku` | F128 | SKU to scale up to |
 | `scaleDownSku` | F64 | SKU to scale down to |
-| `sustainedMinutes` | 5 | Minutes for scale-UP threshold (scale-DOWN uses 2x = 10 min) |
+| `scaleUpMinutes` | 5 | Minutes to sustain above threshold before scaling UP (max: 15) |
+| `scaleDownMinutes` | 10 | Minutes to sustain below threshold before scaling DOWN (max: 30) |
 | `checkIntervalMinutes` | 5 | How often to check metrics |
 
-**Note on Asymmetric Scaling:**
-- `sustainedMinutes` controls the scale-UP window (default 5 minutes = 10 data points)
-- Scale-DOWN automatically requires twice as long (default 10 minutes = 20 data points)
+**Note on Timing:**
+- `scaleUpMinutes = 5` requires 10 data points above threshold (5 min × 2 points/min)
+- `scaleDownMinutes = 10` requires 20 data points below threshold (10 min × 2 points/min)
+- Separate parameters allow you to configure asymmetric scaling independently
 - This prevents "flapping" by being responsive to demand but conservative when scaling down
 
 ### Customizing Parameters
@@ -397,13 +399,19 @@ Advanced monitoring:
 **Current configuration:**
 - Check interval: 5 minutes
 - Monthly runs: 8,640 runs
-- Estimated cost: ~$89/month
+- Actions per run: ~10 (query, parse, conditions, etc.)
+- Total actions: ~86,400/month
+- **Estimated cost: ~$5-6/month**
+  - Logic App: ~$2-3/month ($0.000025 per action after first 4,000 free)
+  - Storage: ~$0.02/month
+  - Application Insights: ~$2.88/month (first 5GB free)
 
 **To reduce costs:**
 
 1. **Increase check interval** to 10 minutes:
-   - Halves the number of runs
-   - Reduces cost to ~$45/month
+   - Halves the number of runs (4,320 runs/month)
+   - Reduces Logic App cost to ~$1-2/month
+   - **Total: ~$4/month**
    - Trade-off: Slower response to capacity changes
 
 2. **Disable during off-hours:**
@@ -444,16 +452,16 @@ az logic workflow delete --resource-group rg-fabricautoscale --name fabricautosc
 ## Support
 
 **Issues:**
-- GitHub Issues: [Create an issue](https://github.com/YOUR_USERNAME/Fabric-AutoScale-LogicApp/issues)
-- Documentation: See README.md and ARCHITECTURE-CHANGE.md
+- GitHub Issues: [Create an issue](https://github.com/alexumanamonge/Fabric_Auto-Scaling_with_LogicApp/issues)
+- Documentation: See README.md and this DEPLOYMENT-GUIDE.md
 
 **Common Questions:**
 
 **Q: How long after high load will scaling occur?**  
-A: Minimum 15 minutes (default sustained period) + up to 5 minutes (check interval) = 15-20 minutes total.
+A: Minimum 5 minutes (default scale-up period) + up to 5 minutes (check interval) = 5-10 minutes total.
 
 **Q: Will it scale down immediately when load drops?**  
-A: No, same sustained logic applies. Must stay below threshold for 15 minutes with ≥3 violations.
+A: No, requires sustained low utilization for 10 minutes (default scale-down period) with ≥20 data points below threshold.
 
 **Q: Can I scale multiple capacities?**  
 A: Currently, each deployment monitors one capacity. Deploy multiple Logic Apps for multiple capacities.
