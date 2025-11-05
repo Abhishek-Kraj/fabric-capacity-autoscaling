@@ -416,6 +416,40 @@
                 ]
               }
             },
+            "Initialize_FirstTimestamp": {
+              "type": "InitializeVariable",
+              "inputs": {
+                "variables": [
+                  {
+                    "name": "firstTimestamp",
+                    "type": "string",
+                    "value": ""
+                  }
+                ]
+              },
+              "runAfter": {
+                "Initialize_DataPointCount": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Initialize_LastTimestamp": {
+              "type": "InitializeVariable",
+              "inputs": {
+                "variables": [
+                  {
+                    "name": "lastTimestamp",
+                    "type": "string",
+                    "value": ""
+                  }
+                ]
+              },
+              "runAfter": {
+                "Initialize_FirstTimestamp": [
+                  "Succeeded"
+                ]
+              }
+            },
             "For_Each_Metric_Row": {
               "type": "Foreach",
               "foreach": "@body('Parse_Metrics_Response')?['results']?[0]?['tables']?[0]?['rows']",
@@ -427,6 +461,45 @@
                     "value": 1
                   }
                 },
+                "Set_First_Timestamp": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@variables('firstTimestamp')",
+                          ""
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Set_FirstTimestamp_Value": {
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "firstTimestamp",
+                        "value": "@{item()['Usage Summary (Last 1 hour)[Timestamp]']}"
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Increment_DataPointCount": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Update_Last_Timestamp": {
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "lastTimestamp",
+                    "value": "@{item()['Usage Summary (Last 1 hour)[Timestamp]']}"
+                  },
+                  "runAfter": {
+                    "Set_First_Timestamp": [
+                      "Succeeded"
+                    ]
+                  }
+                },
                 "Add_To_TotalUtilization": {
                   "type": "IncrementVariable",
                   "inputs": {
@@ -434,7 +507,7 @@
                     "value": "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])"
                   },
                   "runAfter": {
-                    "Increment_DataPointCount": [
+                    "Update_Last_Timestamp": [
                       "Succeeded"
                     ]
                   }
@@ -563,7 +636,7 @@
                     "body": {
                       "To": "@parameters('emailRecipient')",
                       "Subject": "Fabric Capacity Scaled UP - @{parameters('fabricCapacityName')}",
-                      "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED UP</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleUpSku')}</p><p><strong>Trigger:</strong> @{variables('sustainedHighCount')} data points above threshold over @{parameters('scaleUpMinutes')} minutes</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleUpThreshold')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p>",
+                      "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED UP</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleUpSku')}</p><p><strong>Trigger:</strong> @{variables('sustainedHighCount')} data points above threshold over @{parameters('scaleUpMinutes')} minutes</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleUpThreshold')}%</p><p><strong>Evaluation Window:</strong></p><p>&nbsp;&nbsp;• First Data Point: @{variables('lastTimestamp')}</p><p>&nbsp;&nbsp;• Last Data Point: @{variables('firstTimestamp')}</p><p>&nbsp;&nbsp;• Checked At: @{utcNow()}</p>",
                       "Importance": "High"
                     }
                   },
@@ -635,7 +708,7 @@
                           "body": {
                             "To": "@parameters('emailRecipient')",
                             "Subject": "Fabric Capacity Scaled DOWN - @{parameters('fabricCapacityName')}",
-                            "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED DOWN</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleDownSku')}</p><p><strong>Trigger:</strong> @{variables('sustainedLowCount')} data points below threshold over @{parameters('scaleDownMinutes')} minutes</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleDownThreshold')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p>",
+                            "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED DOWN</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleDownSku')}</p><p><strong>Trigger:</strong> @{variables('sustainedLowCount')} data points below threshold over @{parameters('scaleDownMinutes')} minutes</p><p><strong>Average Utilization:</strong> @{outputs('Calculate_Average_Utilization')}%</p><p><strong>Threshold:</strong> @{parameters('scaleDownThreshold')}%</p><p><strong>Evaluation Window:</strong></p><p>&nbsp;&nbsp;• First Data Point: @{variables('lastTimestamp')}</p><p>&nbsp;&nbsp;• Last Data Point: @{variables('firstTimestamp')}</p><p>&nbsp;&nbsp;• Checked At: @{utcNow()}</p>",
                             "Importance": "Normal"
                           }
                         },
