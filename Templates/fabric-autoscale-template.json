@@ -299,7 +299,7 @@
                 "body": {
                   "queries": [
                     {
-                      "query": "EVALUATE TOPN(@{mul(parameters('scaleDownMinutes'), 2)}, 'Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp], DESC)"
+                      "query": "EVALUATE TOPN(@{max(mul(parameters('scaleUpMinutes'), 2), mul(parameters('scaleDownMinutes'), 2))}, 'Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp], DESC)"
                     }
                   ],
                   "serializerSettings": {
