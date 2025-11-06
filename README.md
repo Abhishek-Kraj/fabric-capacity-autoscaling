@@ -4,13 +4,14 @@ Automatic scaling for Microsoft Fabric capacities based on real-time utilization
 
 ## 🎯 What This Does
 
-Automatically scales your Fabric capacity up or down based on sustained CPU utilization:
+Automatically scales your Fabric capacity up or down based on sustained CPU utilization with intelligent logic to prevent flip-flopping:
 
-- **Scales UP** when utilization stays above threshold (default: ≥80%) for a sustained period (default: 5 minutes)
-- **Scales DOWN** when utilization stays below threshold (default: ≤30%) for a sustained period (default: 10 minutes)
+- **Scales UP** when utilization stays above threshold (default: ≥100%) for a sustained period (default: 5 minutes)
+- **Scales DOWN** when utilization stays below threshold (default: ≤45%) for a sustained period (default: 15 minutes) AND scale-up is NOT triggered
+- **Priority-based logic**: Scale-up always takes priority when both conditions are met simultaneously
 - **Sends email notifications** for every scaling action
 - **Uses 30-second data points** from Capacity Metrics App for precise monitoring
-- **Prevents flapping** with separate configurable timing for scale-up and scale-down
+- **Prevents flapping** with intelligent decision logic and separate configurable timing windows
 
 ## ✨ Key Features
 
@@ -22,14 +23,24 @@ Automatically scales your Fabric capacity up or down based on sustained CPU util
 
 ## 📊 How It Works
 
-The Logic App runs on a schedule (default: every 5 minutes), queries the Capacity Metrics dataset, counts data points exceeding thresholds, and scales the capacity accordingly.
+The Logic App runs on a schedule (default: every 5 minutes) and uses intelligent logic to prevent unnecessary scaling:
 
-**Example with default settings:**
-- **Query window**: 20 minutes (scaleDownMinutes × 2 = 10 × 2 = 20 data points)
-- **Scale-UP trigger**: 10 consecutive data points above 80% = 5 minutes sustained
-- **Scale-DOWN trigger**: 20 consecutive data points below 30% = 10 minutes sustained
+1. **Data Collection**: Queries the Capacity Metrics dataset for the last hour of usage data (30-second intervals)
+2. **Time Window Evaluation**: 
+   - Finds the newest data point timestamp
+   - Calculates separate evaluation windows for scale-up (5 min) and scale-down (15 min)
+   - Filters data points within each window and calculates average utilization
+3. **Intelligent Decision Logic**:
+   - **IF** scale-up average ≥ threshold (100%) → **Scale UP** (takes priority)
+   - **ELSE IF** scale-down average ≤ threshold (45%) → **Scale DOWN**
+   - **ELSE** → Do nothing (neither condition met)
+4. **Action**: Scales capacity if needed and sends email notification
 
-This asymmetric design responds quickly to demand while being conservative about scaling down to prevent cost-inefficient flapping.
+**Why This Prevents Flip-Flopping:**
+- Scale-up always takes priority when threshold is met
+- Scale-down only happens when scale-up condition is NOT triggered
+- Separate time windows (5 min vs 15 min) allow quick response to demand but conservative scale-down
+- If both conditions are met simultaneously, scale-up wins
 
 ## 📋 Prerequisites
 
@@ -88,29 +99,53 @@ Install the Microsoft Fabric Capacity Metrics app **before deploying**:
 | `fabricWorkspaceId` | *Required* | Workspace ID where Capacity Metrics App is installed |
 | `capacityMetricsDatasetId` | *Required* | Dataset ID of Capacity Metrics App |
 | `emailRecipient` | *Required* | Email for scaling notifications |
-| `scaleUpThreshold` | 80 | CPU % to trigger scale up (0-100) |
-| `scaleDownThreshold` | 30 | CPU % to trigger scale down (0-100) |
+| `scaleUpThreshold` | 100 | CPU % to trigger scale up (0-100) |
+| `scaleDownThreshold` | 45 | CPU % to trigger scale down (0-100) |
 | `scaleUpSku` | F128 | SKU to scale up to |
 | `scaleDownSku` | F64 | SKU to scale down to |
-| `scaleUpMinutes` | 5 | Minutes to sustain before scaling UP (max: 15) |
-| `scaleDownMinutes` | 10 | Minutes to sustain before scaling DOWN (max: 30) |
+| `scaleUpMinutes` | 5 | Minutes evaluation window for scale-UP (max: 15) |
+| `scaleDownMinutes` | 15 | Minutes evaluation window for scale-DOWN (max: 30) |
 | `checkIntervalMinutes` | 5 | How often to check metrics (1-30) |
 
 **Note on timing:**
 - Data points are collected at 30-second intervals
-- `scaleUpMinutes = 5` means 10 data points must exceed threshold (5 min × 2 points/min)
-- `scaleDownMinutes = 10` means 20 data points must be below threshold (10 min × 2 points/min)
-- Query retrieves last `scaleDownMinutes × 2` data points to accommodate the longer window
+- `scaleUpMinutes = 5` evaluates last 5 minutes of data (~10 data points)
+- `scaleDownMinutes = 15` evaluates last 15 minutes of data (~30 data points)
+- Longer scale-down window provides more conservative scaling behavior
 
 ## 📧 Email Notifications
 
 You'll receive an email for each scaling action with:
 - Action taken (SCALED UP / SCALED DOWN)
 - Previous and new SKU
-- Number of threshold violations and time period
+- Evaluation window duration (5 or 15 minutes)
+- Number of data points evaluated
 - Average utilization during the period
-- Threshold value
-- Timestamp
+- Threshold value that triggered the action
+- Cutoff time and newest data point timestamp
+- Total data points retrieved
+
+## ⚠️ Known Issues & Limitations
+
+### Empty Data After Capacity Resume
+
+**Issue**: If you run the Logic App immediately after resuming a paused capacity, you may see this error:
+```
+InvalidTemplate: Unable to process template language expressions in action 'Calculate_ScaleUp_Cutoff_Time'... 
+The datetime string must match ISO 8601 format.
+```
+
+**Cause**: When a capacity is paused, no metrics data is collected. The Capacity Metrics App needs time to populate data after resuming.
+
+**Solution**: 
+- Wait 5-10 minutes after resuming the capacity before the Logic App runs
+- The error will resolve automatically once data is available
+- This typically only affects capacities that are frequently paused/resumed
+- For always-running production capacities, this is not an issue
+
+### Data Latency
+
+Capacity Metrics data typically has a 5-6 minute lag. This is normal and factored into the evaluation logic.
 
 � For monitoring details, testing instructions, and troubleshooting, see [DEPLOYMENT-GUIDE.md](./DEPLOYMENT-GUIDE.md).
 

@@ -291,23 +291,56 @@ In the run history, expand **Query_Capacity_Metrics** action:
 3. **Capacity name mismatch** → Verify exact name (case-sensitive)
 4. **Wrong workspace ID** → Double-check from workspace URL
 
+### Error: Calculate_ScaleUp_Cutoff_Time - Invalid Datetime String
+
+**Error Message:**
+```
+InvalidTemplate: Unable to process template language expressions in action 'Calculate_ScaleUp_Cutoff_Time'
+inputs at line '0' and column '0': 'In function 'addMinutes', the value provided for date time string '' 
+was not valid. The datetime string must match ISO 8601 format.'
+```
+
+**Cause**: 
+This occurs when the Capacity Metrics dataset has no data available, typically right after:
+- Resuming a paused capacity
+- First deployment before capacity has generated metrics
+- Capacity was inactive/paused overnight
+
+When there's no data, the `maxTimestamp` variable remains empty, and the cutoff time calculation fails.
+
+**Solution**:
+- **Wait 5-10 minutes** after resuming the capacity for metrics data to populate
+- The error will resolve automatically on the next Logic App run once data is available
+- For **always-running production capacities**, this error should not occur
+- If persistent, verify the Capacity Metrics App is properly installed and collecting data
+
+**Note**: This is a known limitation when working with paused/resumed capacities and does not affect normal operations.
+
 ### Scaling Not Happening
 
 **Checklist:**
-- [ ] Sustained threshold met:
-  - Scale-UP: At least **10 data points** (5 minutes) above upper threshold
-  - Scale-DOWN: At least **20 data points** (10 minutes) below lower threshold
+- [ ] Threshold conditions met:
+  - **Scale-UP**: Average utilization ≥ 100% over last 5 minutes
+  - **Scale-DOWN**: Average utilization ≤ 45% over last 15 minutes (AND scale-up NOT triggered)
 - [ ] Current SKU is different from target SKU (won't scale if already at target)
 - [ ] Contributor role assigned on Fabric capacity (see Step 2.2)
 - [ ] Check Logic App run history:
-  - Expand **Check_Scale_Up_Condition** to see `sustainedHighCount` value
-  - Expand **Check_Scale_Down_Condition** to see `sustainedLowCount` value
-  - These counts must reach 10 (up) or 20 (down) to trigger scaling
+  - Expand **Determine_Scaling_Action** to see decision: "SCALE_UP", "SCALE_DOWN", or "NONE"
+  - Expand **Calculate_ScaleUp_Average** to see 5-minute average
+  - Expand **Calculate_ScaleDown_Average** to see 15-minute average
+  - Check **scaleUpCount** and **scaleDownCount** variables for data points evaluated
 
-**Understanding the Counts:**
-- The Logic App queries the last 40 data points (20 minutes at 30-second intervals)
-- It counts how many consecutive points exceed the threshold
-- Default settings: 10 points = 5 minutes sustained for scale-up, 20 points = 10 minutes for scale-down
+**Understanding the Logic:**
+- The Logic App queries the last hour of capacity metrics data
+- It finds the newest timestamp and calculates two evaluation windows:
+  - **Scale-up window**: Last 5 minutes from newest data point
+  - **Scale-down window**: Last 15 minutes from newest data point
+- Calculates average utilization for each window
+- **Decision logic**:
+  - IF scale-up average ≥ 100% → **SCALE UP** (priority)
+  - ELSE IF scale-down average ≤ 45% → **SCALE DOWN**
+  - ELSE → **DO NOTHING**
+- This prevents flip-flopping by giving scale-up priority over scale-down
 
 ---
 
@@ -317,34 +350,39 @@ In the run history, expand **Query_Capacity_Metrics** action:
 
 | Parameter | Default Value | Description |
 |-----------|---------------|-------------|
-| `scaleUpThreshold` | 80 | CPU % to trigger scale up |
-| `scaleDownThreshold` | 30 | CPU % to trigger scale down |
+| `scaleUpThreshold` | 100 | CPU % to trigger scale up |
+| `scaleDownThreshold` | 45 | CPU % to trigger scale down |
 | `scaleUpSku` | F128 | SKU to scale up to |
 | `scaleDownSku` | F64 | SKU to scale down to |
-| `scaleUpMinutes` | 5 | Minutes to sustain above threshold before scaling UP (max: 15) |
-| `scaleDownMinutes` | 10 | Minutes to sustain below threshold before scaling DOWN (max: 30) |
+| `scaleUpMinutes` | 5 | Evaluation window for scale-UP (max: 15) |
+| `scaleDownMinutes` | 15 | Evaluation window for scale-DOWN (max: 30) |
 | `checkIntervalMinutes` | 5 | How often to check metrics |
 
 **Note on Timing:**
-- `scaleUpMinutes = 5` requires 10 data points above threshold (5 min × 2 points/min)
-- `scaleDownMinutes = 10` requires 20 data points below threshold (10 min × 2 points/min)
-- Separate parameters allow you to configure asymmetric scaling independently
-- This prevents "flapping" by being responsive to demand but conservative when scaling down
+- `scaleUpMinutes = 5` evaluates the last 5 minutes of data (~10 data points at 30-second intervals)
+- `scaleDownMinutes = 15` evaluates the last 15 minutes of data (~30 data points)
+- Longer scale-down window provides more conservative behavior
+- **Intelligent decision logic** prevents flip-flopping:
+  - Scale-up takes priority when both conditions are met
+  - Scale-down only triggers when scale-up is NOT triggered
+  - Separate windows allow quick response to demand but conservative scale-down
 
 ### Customizing Parameters
 
-**After deployment**, you can change parameters:
+**After deployment**, you can change parameters in the Azure Portal:
 
+1. Go to **Logic App** > **Parameters** (left menu under Settings)
+2. Edit parameter values directly:
+   - `scaleUpThreshold`, `scaleDownThreshold`
+   - `scaleUpSku`, `scaleDownSku`
+   - `scaleUpMinutes`, `scaleDownMinutes`
+3. Click **Save**
+
+**Or** via Logic App Designer:
 1. Go to **Logic App** > **Logic app designer**
-2. Click on any action that uses a parameter (e.g., **Check_Scale_Up_Condition**)
-3. Parameters are shown as `@parameters('scaleUpThreshold')`
-4. To change values:
-   - Go to **Logic App** > **Overview** > **JSON View** (top toolbar)
-   - Find the `"parameters"` section at the bottom
-   - Update the `"value"` fields
-   - Click **Save**
-
-**Or** redeploy with new parameter values.
+2. Parameters are referenced as `@parameters('parameterName')`
+3. To view/change: **Workflow settings** (top toolbar)
+4. Click **Save**
 
 ### Available Fabric SKUs
 
@@ -372,13 +410,19 @@ After scaling, you'll receive an email:
 **Subject:** `Fabric Capacity Scaled UP - my-capacity`
 
 **Contents:**
-- Action: SCALED UP / SCALED DOWN
-- Previous SKU: F64
-- New SKU: F128
-- Trigger: 10 violations over 5 minutes (scale-up) or 20 violations over 10 minutes (scale-down)
-- Average Utilization: 87.3%
-- Threshold: 80% (scale-up) or 30% (scale-down)
-- Timestamp: 2024-01-15 10:15:00 UTC
+- **Action**: SCALED UP / SCALED DOWN
+- **Capacity**: my-capacity
+- **Previous SKU**: F64
+- **New SKU**: F128
+- **Trigger Analysis**:
+  - Evaluation Window: Last 5 minutes (scale-up) or Last 15 minutes (scale-down)
+  - Data Points Evaluated: 10 points (scale-up) or 30 points (scale-down)
+  - Average Utilization: 105.3%
+  - Threshold: 100% (scale-up) or 45% (scale-down)
+- **Data Window**:
+  - Cutoff Time: 2024-11-06T14:35:00 (earliest data point in evaluation window)
+  - Newest Data Point: 2024-11-06T14:40:00 (most recent data available)
+  - Total Data Points Retrieved: 119 (full hour of data)
 
 ### Application Insights
 
@@ -458,16 +502,22 @@ az logic workflow delete --resource-group rg-fabricautoscale --name fabricautosc
 **Common Questions:**
 
 **Q: How long after high load will scaling occur?**  
-A: Minimum 5 minutes (default scale-up period) + up to 5 minutes (check interval) = 5-10 minutes total.
+A: With default settings (5-minute check interval, 5-minute scale-up window): 0-10 minutes total. The Logic App must run, detect the high utilization over the 5-minute window, and trigger scaling.
 
 **Q: Will it scale down immediately when load drops?**  
-A: No, requires sustained low utilization for 10 minutes (default scale-down period) with ≥20 data points below threshold.
+A: No, requires sustained low utilization for 15 minutes (default scale-down window) AND the scale-up condition must NOT be met. This prevents flip-flopping.
+
+**Q: What prevents the system from flip-flopping between scale-up and scale-down?**  
+A: Intelligent decision logic: Scale-up always takes priority when its threshold is met. Scale-down only happens when scale-up is NOT triggered. Plus, separate time windows (5 min vs 15 min) make scale-up responsive but scale-down conservative.
 
 **Q: Can I scale multiple capacities?**  
 A: Currently, each deployment monitors one capacity. Deploy multiple Logic Apps for multiple capacities.
 
 **Q: What if I need to pause auto-scaling?**  
 A: Disable the Logic App: Azure Portal > Logic App > Overview > **Disable** button.
+
+**Q: What happens if my capacity was paused and I just resumed it?**  
+A: You may see a temporary error about invalid datetime format. Wait 5-10 minutes for the Capacity Metrics App to collect data, then the error will resolve on the next run.
 
 ---
 
