@@ -22,6 +22,9 @@ param(
     [string]$EmailRecipient,
     
     [Parameter(Mandatory=$false)]
+    [string]$LocalTimeZone = "UTC",
+    
+    [Parameter(Mandatory=$false)]
     [string]$FabricSubscriptionId,
     
     [Parameter(Mandatory=$false)]
@@ -95,6 +98,7 @@ $deployment = az deployment group create `
         fabricWorkspaceId=$FabricWorkspaceId `
         capacityMetricsDatasetId=$CapacityMetricsDatasetId `
         emailRecipient=$EmailRecipient `
+        localTimeZone=$LocalTimeZone `
         scaleUpThreshold=$ScaleUpThreshold `
         scaleDownThreshold=$ScaleDownThreshold `
         scaleUpSku=$ScaleUpSku `
