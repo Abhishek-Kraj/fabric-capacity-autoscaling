@@ -112,13 +112,6 @@
         "description": "Email address to receive scaling notifications"
       }
     },
-    "localTimeZone": {
-      "type": "string",
-      "defaultValue": "UTC",
-      "metadata": {
-        "description": "Local timezone for displaying timestamps in email notifications. Examples: 'UTC', 'Central America Standard Time', 'E. South America Standard Time' (Brazil), 'Eastern Standard Time', 'Pacific Standard Time'. See https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/default-time-zones for full list."
-      }
-    },
     "storageAccountName": {
       "type": "string",
       "defaultValue": "[concat('stfabric', uniqueString(resourceGroup().id))]",
@@ -198,40 +191,52 @@
               "type": "Object"
             },
             "fabricSubscriptionId": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": ""
             },
             "fabricResourceGroup": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": ""
             },
             "fabricCapacityName": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": ""
             },
             "fabricWorkspaceId": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": ""
             },
             "capacityMetricsDatasetId": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": ""
             },
             "scaleUpThreshold": {
-              "type": "Int"
+              "type": "Int",
+              "defaultValue": 100
             },
             "scaleDownThreshold": {
-              "type": "Int"
+              "type": "Int",
+              "defaultValue": 45
             },
             "scaleUpSku": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": "F128"
             },
             "scaleDownSku": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": "F64"
             },
             "scaleUpMinutes": {
-              "type": "Int"
+              "type": "Int",
+              "defaultValue": 5
             },
             "scaleDownMinutes": {
-              "type": "Int"
+              "type": "Int",
+              "defaultValue": 15
             },
             "emailRecipient": {
-              "type": "String"
+              "type": "String",
+              "defaultValue": ""
             }
           },
           "triggers": {
@@ -833,7 +838,7 @@
                     "body": {
                       "To": "@parameters('emailRecipient')",
                       "Subject": "Fabric Capacity Scaled UP - @{parameters('fabricCapacityName')}",
-                      "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED UP</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleUpSku')}</p><p><br></p><p><strong>Trigger Analysis:</strong></p><p>&nbsp;&nbsp;• Evaluation Window: Last @{parameters('scaleUpMinutes')} minutes</p><p>&nbsp;&nbsp;• Data Points Evaluated: @{variables('scaleUpCount')}</p><p>&nbsp;&nbsp;• Average Utilization: @{outputs('Calculate_ScaleUp_Average')}%</p><p>&nbsp;&nbsp;• Threshold: @{parameters('scaleUpThreshold')}%</p><p><br></p><p><strong>Data Window (All Data):</strong></p><p>&nbsp;&nbsp;• Total Data Points Retrieved: @{variables('dataPointCount')}</p><p>&nbsp;&nbsp;• Oldest Data Point: @{variables('lastTimestamp')} (UTC)</p><p>&nbsp;&nbsp;• Newest Data Point: @{variables('firstTimestamp')} (UTC)</p><p>&nbsp;&nbsp;• Logic App Check Time: @{convertFromUtc(utcNow(), parameters('localTimeZone'))}</p>",
+                      "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED UP</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleUpSku')}</p><p><br></p><p><strong>Trigger Analysis:</strong></p><p>&nbsp;&nbsp;• Evaluation Window: Last @{parameters('scaleUpMinutes')} minutes</p><p>&nbsp;&nbsp;• Data Points Evaluated: @{variables('scaleUpCount')}</p><p>&nbsp;&nbsp;• Average Utilization: @{outputs('Calculate_ScaleUp_Average')}%</p><p>&nbsp;&nbsp;• Threshold: @{parameters('scaleUpThreshold')}%</p><p><br></p><p><strong>Data Window:</strong></p><p>&nbsp;&nbsp;• Cutoff Time: @{outputs('Calculate_ScaleUp_Cutoff_Time')} (UTC)</p><p>&nbsp;&nbsp;• Newest Data Point: @{variables('maxTimestamp')} (UTC)</p><p>&nbsp;&nbsp;• Total Data Points Retrieved: @{variables('dataPointCount')}</p>",
                       "Importance": "High"
                     }
                   },
@@ -905,7 +910,7 @@
                           "body": {
                             "To": "@parameters('emailRecipient')",
                             "Subject": "Fabric Capacity Scaled DOWN - @{parameters('fabricCapacityName')}",
-                            "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED DOWN</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleDownSku')}</p><p><br></p><p><strong>Trigger Analysis:</strong></p><p>&nbsp;&nbsp;• Evaluation Window: Last @{parameters('scaleDownMinutes')} minutes</p><p>&nbsp;&nbsp;• Data Points Evaluated: @{variables('scaleDownCount')}</p><p>&nbsp;&nbsp;• Average Utilization: @{outputs('Calculate_ScaleDown_Average')}%</p><p>&nbsp;&nbsp;• Threshold: @{parameters('scaleDownThreshold')}%</p><p><br></p><p><strong>Data Window (All Data):</strong></p><p>&nbsp;&nbsp;• Total Data Points Retrieved: @{variables('dataPointCount')}</p><p>&nbsp;&nbsp;• Oldest Data Point: @{variables('lastTimestamp')} (UTC)</p><p>&nbsp;&nbsp;• Newest Data Point: @{variables('firstTimestamp')} (UTC)</p><p>&nbsp;&nbsp;• Logic App Check Time: @{convertFromUtc(utcNow(), parameters('localTimeZone'))}</p>",
+                            "Body": "<p><strong>Fabric Capacity Auto-Scale Alert</strong></p><p><strong>Action:</strong> SCALED DOWN</p><p><strong>Capacity:</strong> @{parameters('fabricCapacityName')}</p><p><strong>Previous SKU:</strong> @{body('Parse_Capacity_Info')?['sku']?['name']}</p><p><strong>New SKU:</strong> @{parameters('scaleDownSku')}</p><p><br></p><p><strong>Trigger Analysis:</strong></p><p>&nbsp;&nbsp;• Evaluation Window: Last @{parameters('scaleDownMinutes')} minutes</p><p>&nbsp;&nbsp;• Data Points Evaluated: @{variables('scaleDownCount')}</p><p>&nbsp;&nbsp;• Average Utilization: @{outputs('Calculate_ScaleDown_Average')}%</p><p>&nbsp;&nbsp;• Threshold: @{parameters('scaleDownThreshold')}%</p><p><br></p><p><strong>Data Window:</strong></p><p>&nbsp;&nbsp;• Cutoff Time: @{outputs('Calculate_ScaleDown_Cutoff_Time')} (UTC)</p><p>&nbsp;&nbsp;• Newest Data Point: @{variables('maxTimestamp')} (UTC)</p><p>&nbsp;&nbsp;• Total Data Points Retrieved: @{variables('dataPointCount')}</p>",
                             "Importance": "Normal"
                           }
                         },
@@ -967,9 +972,6 @@
           },
           "emailRecipient": {
             "value": "[parameters('emailRecipient')]"
-          },
-          "localTimeZone": {
-            "value": "[parameters('localTimeZone')]"
           }
         }
       }
