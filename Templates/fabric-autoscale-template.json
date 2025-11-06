@@ -306,7 +306,7 @@
                 "body": {
                   "queries": [
                     {
-                      "query": "EVALUATE 'Usage Summary (Last 1 hour)'"
+                      "query": "EVALUATE FILTER('Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Timestamp] >= NOW() - TIME(0,5,0))"
                     }
                   ],
                   "serializerSettings": {
@@ -457,153 +457,129 @@
                 ]
               }
             },
-            "Set_Cutoff_Time": {
-              "type": "Compose",
-              "inputs": "@addMinutes(utcNow(), -5)",
+            "For_Each_Metric_Row": {
+              "type": "Foreach",
+              "foreach": "@body('Parse_Metrics_Response')?['results']?[0]?['tables']?[0]?['rows']",
+              "actions": {
+                "Increment_DataPointCount": {
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "dataPointCount",
+                    "value": 1
+                  }
+                },
+                "Set_First_Timestamp": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@variables('firstTimestamp')",
+                          ""
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Set_FirstTimestamp_Value": {
+                      "type": "SetVariable",
+                      "inputs": {
+                        "name": "firstTimestamp",
+                        "value": "@{item()['Usage Summary (Last 1 hour)[Timestamp]']}"
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Increment_DataPointCount": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Set_Last_Timestamp": {
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "lastTimestamp",
+                    "value": "@{item()['Usage Summary (Last 1 hour)[Timestamp]']}"
+                  },
+                  "runAfter": {
+                    "Set_First_Timestamp": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Add_To_TotalUtilization": {
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "totalUtilization",
+                    "value": "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])"
+                  },
+                  "runAfter": {
+                    "Set_Last_Timestamp": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Check_High_Threshold": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "greaterOrEquals": [
+                          "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])",
+                          "@parameters('scaleUpThreshold')"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Increment_HighCount": {
+                      "type": "IncrementVariable",
+                      "inputs": {
+                        "name": "sustainedHighCount",
+                        "value": 1
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Add_To_TotalUtilization": [
+                      "Succeeded"
+                    ]
+                  }
+                },
+                "Check_Low_Threshold": {
+                  "type": "If",
+                  "expression": {
+                    "and": [
+                      {
+                        "lessOrEquals": [
+                          "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])",
+                          "@parameters('scaleDownThreshold')"
+                        ]
+                      }
+                    ]
+                  },
+                  "actions": {
+                    "Increment_LowCount": {
+                      "type": "IncrementVariable",
+                      "inputs": {
+                        "name": "sustainedLowCount",
+                        "value": 1
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Check_High_Threshold": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
               "runAfter": {
                 "Initialize_LastTimestamp": [
                   "Succeeded"
                 ]
               }
             },
-            "For_Each_Metric_Row": {
-              "type": "Foreach",
-              "foreach": "@body('Parse_Metrics_Response')?['results']?[0]?['tables']?[0]?['rows']",
-              "actions": {
-                "Check_If_Within_Last_5_Minutes": {
-                  "type": "If",
-                  "expression": {
-                    "and": [
-                      {
-                        "greaterOrEquals": [
-                          "@item()['Usage Summary (Last 1 hour)[Timestamp]']",
-                          "@outputs('Set_Cutoff_Time')"
-                        ]
-                      }
-                    ]
-                  },
-                  "actions": {
-                    "Increment_DataPointCount": {
-                      "type": "IncrementVariable",
-                      "inputs": {
-                        "name": "dataPointCount",
-                        "value": 1
-                      }
-                    },
-                    "Set_First_Timestamp": {
-                      "type": "If",
-                      "expression": {
-                        "and": [
-                          {
-                            "equals": [
-                              "@variables('firstTimestamp')",
-                              ""
-                            ]
-                          }
-                        ]
-                      },
-                      "actions": {
-                        "Set_FirstTimestamp_Value": {
-                          "type": "SetVariable",
-                          "inputs": {
-                            "name": "firstTimestamp",
-                            "value": "@{item()['Usage Summary (Last 1 hour)[Timestamp]']}"
-                          }
-                        }
-                      },
-                      "runAfter": {
-                        "Increment_DataPointCount": [
-                          "Succeeded"
-                        ]
-                      }
-                    },
-                    "Set_Last_Timestamp": {
-                      "type": "SetVariable",
-                      "inputs": {
-                        "name": "lastTimestamp",
-                        "value": "@{item()['Usage Summary (Last 1 hour)[Timestamp]']}"
-                      },
-                      "runAfter": {
-                        "Set_First_Timestamp": [
-                          "Succeeded"
-                        ]
-                      }
-                    },
-                    "Add_To_TotalUtilization": {
-                      "type": "IncrementVariable",
-                      "inputs": {
-                        "name": "totalUtilization",
-                        "value": "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])"
-                      },
-                      "runAfter": {
-                        "Set_Last_Timestamp": [
-                          "Succeeded"
-                        ]
-                      }
-                    },
-                    "Check_High_Threshold": {
-                      "type": "If",
-                      "expression": {
-                        "and": [
-                          {
-                            "greaterOrEquals": [
-                              "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])",
-                              "@parameters('scaleUpThreshold')"
-                            ]
-                          }
-                        ]
-                      },
-                      "actions": {
-                        "Increment_HighCount": {
-                          "type": "IncrementVariable",
-                          "inputs": {
-                            "name": "sustainedHighCount",
-                            "value": 1
-                          }
-                        }
-                      },
-                      "runAfter": {
-                        "Add_To_TotalUtilization": [
-                          "Succeeded"
-                        ]
-                      }
-                        },
-                    "Check_Low_Threshold": {
-                      "type": "If",
-                      "expression": {
-                        "and": [
-                          {
-                            "lessOrEquals": [
-                              "@float(item()['Usage Summary (Last 1 hour)[Average CU %]'])",
-                              "@parameters('scaleDownThreshold')"
-                            ]
-                          }
-                        ]
-                      },
-                      "actions": {
-                        "Increment_LowCount": {
-                          "type": "IncrementVariable",
-                          "inputs": {
-                            "name": "sustainedLowCount",
-                            "value": 1
-                          }
-                        }
-                      },
-                      "runAfter": {
-                        "Check_High_Threshold": [
-                          "Succeeded"
-                        ]
-                      }
-                    }
-                  }
-                }
-              },
-          "runAfter": {
-            "Set_Cutoff_Time": [
-              "Succeeded"
-            ]
-          }
-        },
             "Calculate_Average_Utilization": {
               "type": "Compose",
               "inputs": "@if(greater(variables('dataPointCount'), 0), div(variables('totalUtilization'), variables('dataPointCount')), 0)",
