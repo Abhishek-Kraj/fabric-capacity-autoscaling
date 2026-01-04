@@ -608,17 +608,7 @@ These settings must be configured by a **Power BI Admin** for the Logic App's Ma
 
 ---
 
-#### Step 2: Enable Service Principal Access to Admin APIs (Optional)
-
-```
-1. In Power BI Admin Portal → Tenant settings
-2. Find "Service principals can access read-only admin APIs"
-3. Enable if you need admin-level read access
-```
-
----
-
-#### Step 3: Add Managed Identity to Power BI Workspace
+#### Step 2: Add Managed Identity to Power BI Workspace
 
 ```
 1. Go to Power BI Service → Your Workspace (with Capacity Metrics)
