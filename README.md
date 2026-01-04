@@ -727,15 +727,142 @@ customEvents
 
 ## Troubleshooting
 
-### Common Issues
+### Common Errors We Encountered
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| **"Unauthorized" on DAX query** | Managed Identity not in Power BI workspace | Add MSI to workspace as Contributor |
-| **"Forbidden" on capacity update** | Missing Contributor role | Assign role via Azure CLI |
-| **No throttle data returned** | No throttling occurred | This is expected when system is healthy |
-| **Scaling not happening** | Cooldown period active | Check last scale time in logs |
-| **Email not sending** | Office 365 connection expired | Re-authenticate the API connection |
+#### 1. Power BI API - "Unauthorized" (401)
+
+```json
+{
+  "error": {
+    "code": "PowerBIEntityNotFound",
+    "message": "Dataset not found"
+  }
+}
+```
+
+**Cause:** MSI not added to Power BI workspace OR tenant setting not enabled
+
+**Solution:**
+1. Enable "Service principals can use Fabric APIs" in Power BI Admin Portal → Tenant Settings
+2. Add Logic App's MSI to the workspace as **Contributor** (not Viewer!)
+3. Wait 5-10 minutes for permissions to propagate
+
+---
+
+#### 2. Capacity API - "Forbidden" (403)
+
+```json
+{
+  "error": {
+    "code": "AuthorizationFailed",
+    "message": "does not have authorization to perform action 'Microsoft.Fabric/capacities/write'"
+  }
+}
+```
+
+**Cause:** MSI doesn't have Contributor role on Fabric Capacity
+
+**Solution:**
+```bash
+# Get MSI Object ID
+OBJECT_ID=$(az logic workflow show --resource-group <RG> --name <LA> --query identity.principalId -o tsv)
+
+# Assign Contributor role
+az role assignment create --assignee $OBJECT_ID --role "Contributor" \
+  --scope "/subscriptions/<SUB>/resourceGroups/<RG>/providers/Microsoft.Fabric/capacities/<CAPACITY>"
+```
+
+---
+
+#### 3. Deployment - Parameters Missing/Wiped
+
+**Symptom:** After deploying with `az logic workflow update --definition`, all parameters become null
+
+**Cause:** Using `--definition` only updates definition, not parameters
+
+**Solution:** Use full PUT request with both definition AND parameters:
+```bash
+curl -X PUT \
+  "https://management.azure.com/subscriptions/<SUB>/resourceGroups/<RG>/providers/Microsoft.Logic/workflows/<LA>?api-version=2016-06-01" \
+  -H "Authorization: Bearer $(az account get-access-token --query accessToken -o tsv)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "westeurope",
+    "properties": {
+      "definition": { ... },
+      "parameters": {
+        "capacitySubscriptionId": {"value": "..."},
+        "powerBIDatasetId": {"value": "..."},
+        ...
+      }
+    }
+  }'
+```
+
+---
+
+#### 4. DAX Query - Syntax Error
+
+```json
+{
+  "error": {
+    "code": "DAXQueryFailure",
+    "message": "The expression contains multiple columns"
+  }
+}
+```
+
+**Cause:** Invalid DAX syntax
+
+**Solution:** Test DAX queries in Power BI Desktop first:
+1. Open Power BI Desktop → Connect to dataset
+2. View → DAX Studio (or use Performance Analyzer)
+3. Test query before adding to Logic App
+
+---
+
+#### 5. MSI Not Found in Power BI Workspace Search
+
+**Symptom:** Can't find Logic App when adding to workspace access
+
+**Cause:** Search requires exact name or Object ID
+
+**Solution:**
+1. Get Object ID: `az logic workflow show --resource-group <RG> --name <LA> --query identity.principalId -o tsv`
+2. In Power BI workspace → Access → paste the Object ID directly
+
+---
+
+#### 6. "BadRequest" - Invalid SKU
+
+```json
+{
+  "error": {
+    "code": "BadRequest",
+    "message": "The SKU 'F2048' is not available for capacity"
+  }
+}
+```
+
+**Cause:** SKU not available in region OR quota limit reached
+
+**Solution:**
+1. Check regional availability: Azure Portal → Microsoft Fabric → Capacities → Pricing
+2. Request quota increase if needed
+
+---
+
+### Error Summary Table
+
+| Error Code | API | Cause | Fix |
+|------------|-----|-------|-----|
+| 401 Unauthorized | Power BI | MSI not in workspace | Add MSI as Contributor |
+| 403 Forbidden | Fabric | Missing Contributor role | Assign role via Azure CLI |
+| 400 BadRequest | Fabric | Invalid SKU/quota | Check availability |
+| DAXQueryFailure | Power BI | Bad DAX syntax | Test in Power BI Desktop |
+| Parameters null | Logic App | Wrong deployment method | Use PUT with full body |
+
+---
 
 ### Debug Mode
 
@@ -752,10 +879,28 @@ Add this to check raw API responses:
 ### Check Logic App Run History
 
 ```bash
+# View recent runs
 az logic workflow run list \
   --resource-group <RESOURCE_GROUP> \
   --name <LOGIC_APP_NAME> \
   --query "[0:5].{name:name, status:status, startTime:startTime}"
+
+# View specific run details
+az logic workflow run show \
+  --resource-group <RESOURCE_GROUP> \
+  --name <LOGIC_APP_NAME> \
+  --name <RUN_NAME>
+```
+
+### View Failed Action Details
+
+```bash
+# List actions in a failed run
+az logic workflow run action list \
+  --resource-group <RESOURCE_GROUP> \
+  --workflow-name <LOGIC_APP_NAME> \
+  --run-name <RUN_NAME> \
+  --filter "status eq 'Failed'"
 ```
 
 ---
