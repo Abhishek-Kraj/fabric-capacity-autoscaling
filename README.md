@@ -212,7 +212,7 @@ az role assignment create \
 
 #### b) Power BI API Access
 
-The Managed Identity needs access to execute DAX queries against the Capacity Metrics dataset:
+The Managed Identity needs access to execute DAX queries against the Capacity Metrics semantic model:
 
 1. Go to **Power BI Admin Portal** → **Tenant Settings**
 2. Enable **"Service principals can use Fabric APIs"**
@@ -343,7 +343,7 @@ az logic workflow trigger \
 | `capacityResourceGroup` | Resource group name | `rg-fabric-prod` |
 | `capacityName` | Fabric capacity name | `fabriccapacity01` |
 | `powerBIWorkspaceId` | Power BI workspace ID with Capacity Metrics app | `87654321-4321-4321-4321-cba987654321` |
-| `powerBIDatasetId` | Capacity Metrics dataset ID | `abcdef12-3456-7890-abcd-ef1234567890` |
+| `powerBIDatasetId` | Capacity Metrics semantic model ID | `abcdef12-3456-7890-abcd-ef1234567890` |
 | `appInsightsInstrumentationKey` | Application Insights instrumentation key | `11111111-2222-3333-4444-555555555555` |
 | `notificationEmail` | Email address for scaling alerts | `team@company.com` |
 | `capacityId` | Fabric capacity GUID (for DAX queries) | `aaaabbbb-cccc-dddd-eeee-ffff00001111` |
@@ -430,25 +430,25 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 
 ---
 
-#### 5. Power BI Dataset ID (Capacity Metrics Dataset)
+#### 5. Power BI Semantic Model ID (Capacity Metrics Semantic Model)
 
 **Via Power BI Service (Easiest):**
 ```
 1. Go to https://app.powerbi.com
 2. Navigate to the workspace with Capacity Metrics
-3. Click on the "Microsoft Fabric Capacity Metrics" dataset (semantic model)
-   Note: The dataset name may vary (e.g., "Fabric Capacity Metrics", "Capacity Metrics")
+3. Click on the "Microsoft Fabric Capacity Metrics" semantic model
+   Note: Name may vary (e.g., "Fabric Capacity Metrics", "Capacity Metrics")
 4. Look at the URL:
    https://app.powerbi.com/groups/87654321.../datasets/abcdef12-3456-7890-abcd-ef1234567890/details
                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                                       This is your Dataset ID
+                                                       This is your Semantic Model (Dataset) ID
 ```
 
 **Via Power BI REST API:**
 ```bash
 TOKEN=$(az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv)
 
-# List datasets in workspace
+# List semantic models in workspace (API still uses 'datasets')
 curl -s -H "Authorization: Bearer $TOKEN" \
   "https://api.powerbi.com/v1.0/myorg/groups/<WORKSPACE_ID>/datasets" | jq '.value[] | {name, id}'
 ```
@@ -461,7 +461,7 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 }
 ```
 
-> **Note:** The dataset name may appear as "Fabric Capacity Metrics", "Microsoft Fabric Capacity Metrics", or a custom name if renamed by your organization.
+> **Note:** The semantic model name may appear as "Fabric Capacity Metrics", "Microsoft Fabric Capacity Metrics", or a custom name if renamed by your organization.
 
 ---
 
@@ -536,7 +536,7 @@ These settings must be configured by a **Power BI Admin** for the Logic App's Ma
 
 **Workspace Role Permissions:**
 
-| Role | Can Execute DAX | Can Read Dataset | Can Modify |
+| Role | Can Execute DAX | Can Read Semantic Model | Can Modify |
 |------|-----------------|------------------|------------|
 | Viewer | No | Yes | No |
 | Contributor | Yes | Yes | Yes |
