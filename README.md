@@ -70,62 +70,158 @@ Complete audit trail in Application Insights with detailed metrics and timestamp
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              AZURE LOGIC APP                                  │
-│                           (Recurrence: Every 5 min)                          │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                      │
-        ┌─────────────────────────────┼─────────────────────────────┐
-        ▼                             ▼                             ▼
-┌───────────────────┐    ┌────────────────────────┐    ┌────────────────────┐
-│   AZURE REST API  │    │    POWER BI REST API   │    │   FABRIC CAPACITY  │
-│                   │    │                        │    │     METRICS APP    │
-│  Get Current SKU  │    │  Execute DAX Queries   │    │                    │
-│  (F512/1024/2048) │    │  against Metrics DB    │    │  • Usage Summary   │
-└───────────────────┘    └────────────────────────┘    │  • Items Throttled │
-                                      │                │  • CU Detail       │
-                                      ▼                └────────────────────┘
-                         ┌────────────────────────┐
-                         │   METRICS COLLECTED    │
-                         ├────────────────────────┤
-                         │ • Current CU %         │
-                         │ • 45-min Average CU %  │
-                         │ • Throttle Count       │
-                         │ • Rejection %          │
-                         └────────────────────────┘
-                                      │
-                                      ▼
-                         ┌────────────────────────┐
-                         │   DECISION ENGINE      │
-                         ├────────────────────────┤
-                         │ 1. Emergency Check     │──▶ CU≥95% OR Throttle>0 OR Reject≥0.5%
-                         │ 2. Cooldown Check      │──▶ 30 min since last scale
-                         │ 3. Scale-Up Rules      │──▶ Per-SKU thresholds
-                         │ 4. Scale-Down Rules    │──▶ Per-SKU thresholds
-                         └────────────────────────┘
-                                      │
-        ┌─────────────────────────────┼─────────────────────────────┐
-        ▼                             ▼                             ▼
-┌───────────────────┐    ┌────────────────────────┐    ┌────────────────────┐
-│  SCALE CAPACITY   │    │   EMAIL NOTIFICATION   │    │ APPLICATION        │
-│                   │    │                        │    │ INSIGHTS           │
-│  PATCH Azure API  │    │  HTML-formatted alert  │    │                    │
-│  Update SKU tier  │    │  via Office 365        │    │  Complete audit    │
-└───────────────────┘    └────────────────────────┘    │  trail with all    │
-                                                        │ metrics logged    │
-                                                        └────────────────────┘
+### High-Level Architecture
+
+```mermaid
+flowchart TB
+    subgraph trigger["⏰ TRIGGER"]
+        Timer["Timer<br/>Every 5 min"]
+    end
+
+    subgraph datasources["📊 DATA SOURCES"]
+        AzureAPI["Azure REST API<br/>Get Current SKU"]
+        PowerBI["Power BI REST API<br/>Execute DAX Queries"]
+        Metrics["Fabric Capacity<br/>Metrics App"]
+    end
+
+    subgraph collected["📈 METRICS COLLECTED"]
+        M1["Current CU %"]
+        M2["45-min Avg CU %"]
+        M3["Throttle Count"]
+        M4["Rejection %"]
+    end
+
+    subgraph decision["🧠 DECISION ENGINE"]
+        E1["1. Emergency Check<br/>CU≥95% OR Throttle>0 OR Reject≥0.5%"]
+        E2["2. Cooldown Check<br/>30 min since last scale"]
+        E3["3. Scale-Up Rules<br/>Per-SKU thresholds"]
+        E4["4. Scale-Down Rules<br/>Per-SKU thresholds"]
+    end
+
+    subgraph actions["⚡ ACTIONS"]
+        Scale["Scale Capacity<br/>PATCH Azure API"]
+        Email["Email Notification<br/>Office 365"]
+        AppInsights["Application Insights<br/>Audit Trail"]
+    end
+
+    Timer --> AzureAPI
+    Timer --> PowerBI
+    PowerBI --> Metrics
+    AzureAPI --> M1
+    PowerBI --> M1
+    PowerBI --> M2
+    PowerBI --> M3
+    PowerBI --> M4
+    M1 --> E1
+    M2 --> E1
+    M3 --> E1
+    M4 --> E1
+    E1 --> E2
+    E2 --> E3
+    E3 --> E4
+    E4 --> Scale
+    E4 --> Email
+    E4 --> AppInsights
+
+    style trigger fill:#e1f5fe
+    style datasources fill:#fff3e0
+    style collected fill:#e8f5e9
+    style decision fill:#fce4ec
+    style actions fill:#f3e5f5
 ```
 
-### Data Flow
+### Decision Flow
 
+```mermaid
+flowchart LR
+    A["🕐 Timer<br/>5 min"] --> B["📊 Read<br/>Metrics"]
+    B --> C["🔍 Analyze<br/>Data"]
+    C --> D{"🧠 Decide"}
+    D -->|Scale Up| E["⬆️ Scale Up"]
+    D -->|Scale Down| F["⬇️ Scale Down"]
+    D -->|No Action| G["✓ No Action"]
+    D -->|Cooldown| H["⏳ Cooldown"]
+    E --> I["📧 Email + 📝 Log"]
+    F --> I
+    G --> I
+    H --> I
+
+    style A fill:#bbdefb
+    style D fill:#ffcdd2
+    style E fill:#c8e6c9
+    style F fill:#fff9c4
+    style I fill:#e1bee7
 ```
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│  Timer  │───▶│  Read   │───▶│ Analyze │───▶│ Decide  │───▶│ Execute │
-│ Trigger │    │ Metrics │    │  Data   │    │ Action  │    │ & Log   │
-└─────────┘    └─────────┘    └─────────┘    └─────────┘    └─────────┘
-   5 min         3 DAX          Check         Scale/        Email +
-   loop         queries        thresholds    NoAction      App Insights
+
+### Scaling Logic Flow
+
+```mermaid
+flowchart TD
+    Start(["Every 5 Minutes"]) --> GetSKU["Get Current SKU<br/>F512 / F1024 / F2048"]
+    GetSKU --> GetMetrics["Get Metrics<br/>CU%, Avg45Min, Throttle, Rejection"]
+    GetMetrics --> Emergency{"Emergency?<br/>CU≥95% OR<br/>Throttle>0 OR<br/>Reject≥0.5%"}
+
+    Emergency -->|Yes| EmergencyScale["🚨 EMERGENCY SCALE UP<br/>(Bypass Cooldown)"]
+    Emergency -->|No| Cooldown{"Cooldown<br/>Active?"}
+
+    Cooldown -->|Yes, < 30min| LogCooldown["Log: Cooldown Active"]
+    Cooldown -->|No| CheckScaleUp{"Scale Up<br/>Needed?"}
+
+    CheckScaleUp -->|Yes| ScaleUp["⬆️ Scale Up<br/>F512→F1024→F2048"]
+    CheckScaleUp -->|No| CheckScaleDown{"Scale Down<br/>Needed?"}
+
+    CheckScaleDown -->|Yes| ScaleDown["⬇️ Scale Down<br/>F2048→F1024→F512"]
+    CheckScaleDown -->|No| NoAction["✓ No Action Needed"]
+
+    EmergencyScale --> Notify["📧 Send Email"]
+    ScaleUp --> Notify
+    ScaleDown --> Notify
+    LogCooldown --> Log["📝 Log to App Insights"]
+    NoAction --> Log
+    Notify --> Log
+
+    style Emergency fill:#ffcdd2
+    style EmergencyScale fill:#ef5350,color:#fff
+    style ScaleUp fill:#81c784
+    style ScaleDown fill:#fff176
+    style NoAction fill:#e0e0e0
+```
+
+### Component Interaction
+
+```mermaid
+sequenceDiagram
+    participant Timer as ⏰ Timer (5min)
+    participant LA as 🔄 Logic App
+    participant Azure as ☁️ Azure API
+    participant PBI as 📊 Power BI API
+    participant Fabric as 🏭 Fabric Capacity
+    participant Email as 📧 Office 365
+    participant AI as 📝 App Insights
+
+    Timer->>LA: Trigger
+
+    par Get Data
+        LA->>Azure: GET Current SKU
+        Azure-->>LA: F1024
+        LA->>PBI: POST DAX Query (CU%)
+        PBI-->>LA: CurrentCU: 85%
+        LA->>PBI: POST DAX Query (Avg45)
+        PBI-->>LA: AvgCU45: 72%
+        LA->>PBI: POST DAX Query (Throttle)
+        PBI-->>LA: Throttle: 0, Reject: 0%
+    end
+
+    LA->>LA: Decision Engine
+    Note over LA: CU=85%, Avg=72%<br/>F1024 threshold: 75%/85%<br/>→ Scale Up!
+
+    LA->>Fabric: PATCH SKU → F2048
+    Fabric-->>LA: Success
+
+    par Notify & Log
+        LA->>Email: Send Alert
+        LA->>AI: Log Event
+    end
 ```
 
 ---
