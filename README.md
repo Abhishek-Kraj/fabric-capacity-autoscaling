@@ -350,21 +350,243 @@ az logic workflow trigger \
 
 ### Finding Your IDs
 
-**Capacity ID:**
-```bash
-az fabric capacity show \
-  --resource-group <RESOURCE_GROUP> \
-  --name <CAPACITY_NAME> \
-  --query id -o tsv
+#### 1. Capacity Subscription ID
+
+**Via Azure Portal:**
+```
+Azure Portal → Subscriptions → Select your subscription → Overview
+Copy the "Subscription ID"
 ```
 
-**Power BI Workspace ID:**
-- Go to Power BI → Workspace → URL contains the ID
-- Example: `https://app.powerbi.com/groups/87654321-4321-4321-4321-cba987654321/`
+**Via Azure CLI:**
+```bash
+az account show --query id -o tsv
+```
 
-**Power BI Dataset ID:**
-- Go to Power BI → Dataset → Settings → URL contains the ID
-- Or use: `GET https://api.powerbi.com/v1.0/myorg/groups/{workspaceId}/datasets`
+---
+
+#### 2. Capacity Resource Group & Capacity Name
+
+**Via Azure Portal:**
+```
+Azure Portal → Microsoft Fabric → Capacities → Select your capacity
+├── Resource Group: shown in "Essentials" section
+└── Capacity Name: shown at the top (e.g., "fabriccapacity01")
+```
+
+**Via Azure CLI:**
+```bash
+# List all Fabric capacities
+az resource list --resource-type "Microsoft.Fabric/capacities" --query "[].{name:name, resourceGroup:resourceGroup}" -o table
+```
+
+---
+
+#### 3. Capacity ID (GUID for DAX queries)
+
+**Via Azure Portal:**
+```
+Azure Portal → Microsoft Fabric → Capacities → Select your capacity → Properties
+Copy the "Capacity ID" (GUID format: aaaabbbb-cccc-dddd-eeee-ffff00001111)
+```
+
+**Via Azure CLI:**
+```bash
+az rest --method GET \
+  --uri "https://management.azure.com/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.Fabric/capacities/<CAPACITY_NAME>?api-version=2023-11-01" \
+  --query "properties.capacityId" -o tsv
+```
+
+**Via Power BI:**
+```
+Power BI Service → Settings (gear icon) → Admin Portal → Capacity settings
+Select your capacity → The URL contains the capacity ID
+Example: https://app.powerbi.com/admin-portal/capacities/aaaabbbb-cccc-dddd-eeee-ffff00001111
+```
+
+---
+
+#### 4. Power BI Workspace ID
+
+**Via Power BI Service (Easiest):**
+```
+1. Go to https://app.powerbi.com
+2. Navigate to your workspace (where Capacity Metrics app is installed)
+3. Look at the URL in your browser:
+   https://app.powerbi.com/groups/87654321-4321-4321-4321-cba987654321/list
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                 This is your Workspace ID
+```
+
+**Via Power BI REST API:**
+```bash
+# First get an access token
+TOKEN=$(az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv)
+
+# List all workspaces
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://api.powerbi.com/v1.0/myorg/groups" | jq '.value[] | {name, id}'
+```
+
+---
+
+#### 5. Power BI Dataset ID (Capacity Metrics Dataset)
+
+**Via Power BI Service (Easiest):**
+```
+1. Go to https://app.powerbi.com
+2. Navigate to the workspace with Capacity Metrics
+3. Click on the "Fabric Capacity Metrics" dataset (semantic model)
+4. Look at the URL:
+   https://app.powerbi.com/groups/87654321.../datasets/abcdef12-3456-7890-abcd-ef1234567890/details
+                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                       This is your Dataset ID
+```
+
+**Via Power BI REST API:**
+```bash
+TOKEN=$(az account get-access-token --resource https://analysis.windows.net/powerbi/api --query accessToken -o tsv)
+
+# List datasets in workspace
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://api.powerbi.com/v1.0/myorg/groups/<WORKSPACE_ID>/datasets" | jq '.value[] | {name, id}'
+```
+
+**Expected Output:**
+```json
+{
+  "name": "Fabric Capacity Metrics",
+  "id": "abcdef12-3456-7890-abcd-ef1234567890"
+}
+```
+
+---
+
+#### 6. Application Insights Instrumentation Key
+
+**Via Azure Portal:**
+```
+Azure Portal → Application Insights → Select your instance → Overview
+Copy the "Instrumentation Key" (shown in Essentials section)
+```
+
+**Via Azure CLI:**
+```bash
+az monitor app-insights component show \
+  --app <APP_INSIGHTS_NAME> \
+  --resource-group <RESOURCE_GROUP> \
+  --query instrumentationKey -o tsv
+```
+
+---
+
+### Power BI Tenant Settings (Admin Portal)
+
+These settings must be configured by a **Power BI Admin** for the Logic App's Managed Identity to work.
+
+#### Step 1: Enable Service Principal API Access
+
+```
+1. Go to https://app.powerbi.com
+2. Click Settings (gear icon) → Admin Portal
+3. Go to "Tenant settings" in the left menu
+4. Scroll to "Developer settings" section
+5. Find "Service principals can use Fabric APIs"
+6. Enable it and choose one of:
+   ├── "The entire organization" (allows all service principals)
+   └── "Specific security groups" (recommended - create a group first)
+```
+
+**If using Specific Security Groups:**
+```
+1. Go to Azure Portal → Entra ID (Azure AD) → Groups
+2. Create a new Security Group (e.g., "Fabric-API-Service-Principals")
+3. Add the Logic App's Managed Identity as a member:
+   - Go to Logic App → Identity → Copy Object (principal) ID
+   - In the Security Group → Members → Add → Paste the Object ID
+4. Back in Power BI Admin Portal, add this group to the setting
+```
+
+---
+
+#### Step 2: Enable Service Principal Access to Admin APIs (Optional)
+
+```
+1. In Power BI Admin Portal → Tenant settings
+2. Find "Service principals can access read-only admin APIs"
+3. Enable if you need admin-level read access
+```
+
+---
+
+#### Step 3: Add Managed Identity to Power BI Workspace
+
+```
+1. Go to Power BI Service → Your Workspace (with Capacity Metrics)
+2. Click "..." (more options) → "Manage access" (or "Access")
+3. Click "Add people or groups"
+4. Search for the Logic App name (it shows as an "App" icon)
+   - If not found, search by Object ID from Azure
+5. Assign role: "Contributor" or "Member"
+6. Click "Add"
+```
+
+**Workspace Role Permissions:**
+
+| Role | Can Execute DAX | Can Read Dataset | Can Modify |
+|------|-----------------|------------------|------------|
+| Viewer | No | Yes | No |
+| Contributor | Yes | Yes | Yes |
+| Member | Yes | Yes | Yes |
+| Admin | Yes | Yes | Yes |
+
+---
+
+### Azure Resource Permissions
+
+#### Fabric Capacity - Contributor Role
+
+The Logic App needs **Contributor** role on the Fabric Capacity to change SKU.
+
+**Via Azure Portal:**
+```
+1. Azure Portal → Microsoft Fabric → Capacities → Your Capacity
+2. Click "Access control (IAM)" in left menu
+3. Click "Add" → "Add role assignment"
+4. Role: "Contributor"
+5. Members: Select "Managed identity" → "Logic app" → Your Logic App
+6. Review + Assign
+```
+
+**Via Azure CLI:**
+```bash
+# Get Logic App's Managed Identity Object ID
+OBJECT_ID=$(az logic workflow show \
+  --resource-group <RESOURCE_GROUP> \
+  --name <LOGIC_APP_NAME> \
+  --query identity.principalId -o tsv)
+
+# Assign Contributor role
+az role assignment create \
+  --assignee $OBJECT_ID \
+  --role "Contributor" \
+  --scope "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>/providers/Microsoft.Fabric/capacities/<CAPACITY_NAME>"
+```
+
+---
+
+### Quick Reference: All IDs Summary
+
+| Parameter | Where to Find | Format |
+|-----------|---------------|--------|
+| `capacitySubscriptionId` | Azure Portal → Subscriptions | `12345678-1234-1234-1234-123456789abc` |
+| `capacityResourceGroup` | Azure Portal → Fabric Capacity → Overview | `rg-fabric-prod` |
+| `capacityName` | Azure Portal → Fabric Capacity → Overview | `fabriccapacity01` |
+| `capacityId` | Azure Portal → Fabric Capacity → Properties | `aaaabbbb-cccc-dddd-eeee-ffff00001111` |
+| `powerBIWorkspaceId` | Power BI URL after `/groups/` | `87654321-4321-4321-4321-cba987654321` |
+| `powerBIDatasetId` | Power BI URL after `/datasets/` | `abcdef12-3456-7890-abcd-ef1234567890` |
+| `appInsightsInstrumentationKey` | Azure Portal → App Insights → Overview | `11111111-2222-3333-4444-555555555555` |
+| `notificationEmail` | Your email for alerts | `team@company.com` |
 
 ---
 
