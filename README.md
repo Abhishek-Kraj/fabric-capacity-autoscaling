@@ -436,7 +436,8 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 ```
 1. Go to https://app.powerbi.com
 2. Navigate to the workspace with Capacity Metrics
-3. Click on the "Fabric Capacity Metrics" dataset (semantic model)
+3. Click on the "Microsoft Fabric Capacity Metrics" dataset (semantic model)
+   Note: The dataset name may vary (e.g., "Fabric Capacity Metrics", "Capacity Metrics")
 4. Look at the URL:
    https://app.powerbi.com/groups/87654321.../datasets/abcdef12-3456-7890-abcd-ef1234567890/details
                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -455,10 +456,12 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 **Expected Output:**
 ```json
 {
-  "name": "Fabric Capacity Metrics",
+  "name": "Microsoft Fabric Capacity Metrics",
   "id": "abcdef12-3456-7890-abcd-ef1234567890"
 }
 ```
+
+> **Note:** The dataset name may appear as "Fabric Capacity Metrics", "Microsoft Fabric Capacity Metrics", or a custom name if renamed by your organization.
 
 ---
 
