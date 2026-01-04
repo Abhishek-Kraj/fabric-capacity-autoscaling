@@ -1,0 +1,16 @@
+# Sensitive files
+*.env
+*secrets*
+*credentials*
+
+# Local config with real values
+workflow-local.json
+parameters-local.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
