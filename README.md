@@ -84,8 +84,8 @@ Complete audit trail in Application Insights with detailed metrics and timestamp
 │  Get Current SKU  │    │  Execute DAX Queries   │    │                    │
 │  (F512/1024/2048) │    │  against Metrics DB    │    │  • Usage Summary   │
 └───────────────────┘    └────────────────────────┘    │  • Items Throttled │
-                                      │                 │  • CU Detail       │
-                                      ▼                 └────────────────────┘
+                                      │                │  • CU Detail       │
+                                      ▼                └────────────────────┘
                          ┌────────────────────────┐
                          │   METRICS COLLECTED    │
                          ├────────────────────────┤
@@ -113,7 +113,7 @@ Complete audit trail in Application Insights with detailed metrics and timestamp
 │  PATCH Azure API  │    │  HTML-formatted alert  │    │                    │
 │  Update SKU tier  │    │  via Office 365        │    │  Complete audit    │
 └───────────────────┘    └────────────────────────┘    │  trail with all    │
-                                                        │  metrics logged    │
+                                                        │ metrics logged    │
                                                         └────────────────────┘
 ```
 
