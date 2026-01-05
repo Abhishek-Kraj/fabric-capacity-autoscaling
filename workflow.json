@@ -1,1047 +1,1073 @@
 {
-  "definition": {
-    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-      "$connections": {
-        "defaultValue": {},
-        "type": "Object"
-      },
-      "appInsightsInstrumentationKey": {
-        "defaultValue": "<YOUR_APP_INSIGHTS_KEY>",
-        "type": "String"
-      },
-      "capacityName": {
-        "defaultValue": "<YOUR_CAPACITY_NAME>",
-        "type": "String"
-      },
-      "capacityResourceGroup": {
-        "defaultValue": "<YOUR_RESOURCE_GROUP>",
-        "type": "String"
-      },
-      "capacitySubscriptionId": {
-        "defaultValue": "<YOUR_SUBSCRIPTION_ID>",
-        "type": "String"
-      },
-      "notificationEmail": {
-        "defaultValue": "<YOUR_EMAIL>",
-        "type": "String"
-      },
-      "powerBIDatasetId": {
-        "defaultValue": "<YOUR_DATASET_ID>",
-        "type": "String"
-      },
-      "powerBIWorkspaceId": {
-        "defaultValue": "<YOUR_WORKSPACE_ID>",
-        "type": "String"
-      }
-    },
-    "triggers": {
-      "Recurrence": {
-        "recurrence": {
-          "frequency": "Minute",
-          "interval": 5
-        },
-        "type": "Recurrence"
-      }
-    },
-    "actions": {
-      "Initialize_Variables": {
-        "type": "InitializeVariable",
-        "inputs": {
-          "variables": [
-            {
-              "name": "CurrentSKU",
-              "type": "string",
-              "value": "F512"
-            },
-            {
-              "name": "CurrentCU",
-              "type": "float",
-              "value": 0.0
-            },
-            {
-              "name": "AvgCU45Min",
-              "type": "float",
-              "value": 0.0
-            },
-            {
-              "name": "LastScaleUpTime",
-              "type": "string",
-              "value": "1970-01-01T00:00:00Z"
-            },
-            {
-              "name": "Decision",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "ScalingReason",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "GulfTime",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "DataTimestamp",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "ThrottleCount",
-              "type": "integer",
-              "value": 0
-            },
-            {
-              "name": "RejectionPct",
-              "type": "float",
-              "value": 0.0
-            }
-          ]
-        },
-        "runAfter": {}
-      },
-      "Set_GulfTime": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "GulfTime",
-          "value": "@{convertTimeZone(utcNow(), 'UTC', 'Arabian Standard Time', 'yyyy-MM-dd HH:mm:ss')} GST"
-        },
-        "runAfter": {
-          "Initialize_Variables": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Get_Current_Capacity": {
-        "type": "Http",
-        "inputs": {
-          "method": "GET",
-          "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-          "authentication": {
-            "type": "ManagedServiceIdentity"
-          }
-        },
-        "runAfter": {
-          "Set_GulfTime": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_Current_SKU": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "CurrentSKU",
-          "value": "@body('Get_Current_Capacity')?['sku']?['name']"
-        },
-        "runAfter": {
-          "Get_Current_Capacity": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Get_Last_SKU_Change": {
-        "type": "Http",
-        "inputs": {
-          "method": "POST",
-          "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries",
-          "headers": {
-            "Content-Type": "application/json"
-          },
-          "body": {
-            "queries": [
-              {
-                "query": "EVALUATE VAR CurrentSKU = MAXX(TOPN(1, 'CU Detail', 'CU Detail'[Window start time], DESC), 'CU Detail'[SKU]) VAR Last30MinData = FILTER('CU Detail', 'CU Detail'[Window start time] >= NOW() - 30/1440) VAR FirstWithCurrentSKU = MINX(FILTER(Last30MinData, 'CU Detail'[SKU] = CurrentSKU), 'CU Detail'[Window start time]) RETURN ROW(\"LastScaleTime\", FirstWithCurrentSKU, \"CurrentSKU\", CurrentSKU)"
-              }
-            ],
-            "serializerSettings": {
-              "includeNulls": false
-            }
-          },
-          "authentication": {
-            "type": "ManagedServiceIdentity",
-            "audience": "https://analysis.windows.net/powerbi/api"
-          }
-        },
-        "runAfter": {
-          "Set_Current_SKU": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_LastScaleUpTime_From_Fabric": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "LastScaleUpTime",
-          "value": "@{addHours(coalesce(body('Get_Last_SKU_Change')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[LastScaleTime]'], '1970-01-01T00:00:00Z'), -4)}"
-        },
-        "runAfter": {
-          "Get_Last_SKU_Change": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Get_Current_Metrics": {
-        "type": "Http",
-        "inputs": {
-          "method": "POST",
-          "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries",
-          "headers": {
-            "Content-Type": "application/json"
-          },
-          "body": {
-            "queries": [
-              {
-                "query": "EVALUATE SELECTCOLUMNS(TOPN(1, FILTER('Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Capacity Id] = \"<YOUR_CAPACITY_ID>\"), 'Usage Summary (Last 1 hour)'[Timestamp], DESC), \"Max_CU\", 'Usage Summary (Last 1 hour)'[Average CU %], \"Data_Timestamp\", 'Usage Summary (Last 1 hour)'[Timestamp])"
-              }
-            ],
-            "serializerSettings": {
-              "includeNulls": false
-            }
-          },
-          "authentication": {
-            "type": "ManagedServiceIdentity",
-            "audience": "https://analysis.windows.net/powerbi/api"
-          }
-        },
-        "runAfter": {
-          "Set_LastScaleUpTime_From_Fabric": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_Current_CU": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "CurrentCU",
-          "value": "@float(body('Get_Current_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[Max_CU]'])"
-        },
-        "runAfter": {
-          "Get_Current_Metrics": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_DataTimestamp": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "DataTimestamp",
-          "value": "@{body('Get_Current_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[Data_Timestamp]']}"
-        },
-        "runAfter": {
-          "Set_Current_CU": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Get_45Min_Average_CU": {
-        "type": "Http",
-        "inputs": {
-          "method": "POST",
-          "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries",
-          "authentication": {
-            "type": "ManagedServiceIdentity",
-            "audience": "https://analysis.windows.net/powerbi/api"
-          },
-          "body": {
-            "queries": [
-              {
-                "query": "EVALUATE SUMMARIZE(FILTER('Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Capacity Id] = \"<YOUR_CAPACITY_ID>\" && 'Usage Summary (Last 1 hour)'[Timestamp] >= NOW() - 45/1440), \"Avg_CU_45Min\", AVERAGE('Usage Summary (Last 1 hour)'[Average CU %]))"
-              }
-            ],
-            "serializerSettings": {
-              "includeNulls": false
-            }
-          }
-        },
-        "runAfter": {
-          "Set_DataTimestamp": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_AvgCU45Min": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "AvgCU45Min",
-          "value": "@float(body('Get_45Min_Average_CU')['results'][0]['tables'][0]['rows'][0]['[Avg_CU_45Min]'])"
-        },
-        "runAfter": {
-          "Get_45Min_Average_CU": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Get_Throttle_Rejection_Metrics": {
-        "type": "Http",
-        "inputs": {
-          "method": "POST",
-          "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries",
-          "authentication": {
-            "type": "ManagedServiceIdentity",
-            "audience": "https://analysis.windows.net/powerbi/api"
-          },
-          "body": {
-            "queries": [
-              {
-                "query": "EVALUATE VAR ThrottleData = FILTER('Items Throttled', 'Items Throttled'[Timestamp] >= NOW() - 15/1440) VAR LatestCU = TOPN(1, 'CU Detail', 'CU Detail'[Window start time], DESC) RETURN ROW(\"ThrottleCount\", COUNTROWS(ThrottleData), \"InteractiveRejectionPct\", MAXX(LatestCU, 'CU Detail'[Interactive rejection %]), \"BackgroundRejectionPct\", MAXX(LatestCU, 'CU Detail'[Background rejection %]))"
-              }
-            ],
-            "serializerSettings": {
-              "includeNulls": true
-            }
-          }
-        },
-        "runAfter": {
-          "Set_AvgCU45Min": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_ThrottleCount": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "ThrottleCount",
-          "value": "@coalesce(body('Get_Throttle_Rejection_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[ThrottleCount]'], 0)"
-        },
-        "runAfter": {
-          "Get_Throttle_Rejection_Metrics": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Set_RejectionPct": {
-        "type": "SetVariable",
-        "inputs": {
-          "name": "RejectionPct",
-          "value": "@coalesce(float(body('Get_Throttle_Rejection_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[InteractiveRejectionPct]']), 0.0)"
-        },
-        "runAfter": {
-          "Set_ThrottleCount": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Check_Critical_Emergency": {
-        "type": "If",
-        "expression": {
-          "or": [
-            {
-              "greaterOrEquals": [
-                "@variables('CurrentCU')",
-                95
-              ]
-            },
-            {
-              "greater": [
-                "@variables('ThrottleCount')",
-                0
-              ]
-            },
-            {
-              "greaterOrEquals": [
-                "@variables('RejectionPct')",
-                0.5
-              ]
-            }
-          ]
-        },
-        "actions": {
-          "Emergency_Scale_Decision": {
-            "type": "Switch",
-            "expression": "@variables('CurrentSKU')",
-            "cases": {
-              "F512": {
-                "case": "F512",
-                "actions": {
-                  "Emergency_Scale_F512_to_F1024": {
-                    "type": "Http",
-                    "inputs": {
-                      "method": "PATCH",
-                      "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-                      "headers": {
-                        "Content-Type": "application/json"
-                      },
-                      "body": {
-                        "sku": {
-                          "name": "F1024",
-                          "tier": "Fabric"
-                        }
-                      },
-                      "authentication": {
-                        "type": "ManagedServiceIdentity"
-                      }
-                    },
-                    "runAfter": {}
-                  },
-                  "Send_Email_Emergency_F512_F1024": {
-                    "type": "ApiConnection",
-                    "inputs": {
-                      "host": {
-                        "connection": {
-                          "name": "@parameters('$connections')['office365']['connectionId']"
-                        }
-                      },
-                      "method": "post",
-                      "path": "/v2/Mail",
-                      "body": {
-                        "To": "@{parameters('notificationEmail')}",
-                        "Subject": "\ud83d\udea8 Fabric Capacity Scaled: F512 \u2192 F1024",
-                        "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #dc3545; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #dc3545; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>\ud83d\udea8 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F512 <span class=\"arrow\">\u2192</span> F1024</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> CRITICAL</p>\n        <p><strong>Reason:</strong> \ud83d\udea8 CRITICAL EMERGENCY: Instant CU >= 95%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">\ud83e\udd16 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
-                        "Importance": "High"
-                      }
-                    },
-                    "runAfter": {
-                      "Emergency_Scale_F512_to_F1024": [
-                        "Succeeded"
-                      ]
-                    }
-                  },
-                  "Set_Decision_Emergency_F1024": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "Decision",
-                      "value": "EMERGENCY_F512_to_F1024"
-                    },
-                    "runAfter": {
-                      "Send_Email_Emergency_F512_F1024": [
-                        "Succeeded"
-                      ]
-                    }
-                  },
-                  "Update_LastScaleUpTime_Emergency_F1024": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "LastScaleUpTime",
-                      "value": "@utcNow()"
-                    },
-                    "runAfter": {
-                      "Set_Decision_Emergency_F1024": [
-                        "Succeeded"
-                      ]
-                    }
-                  }
-                }
-              },
-              "F1024": {
-                "case": "F1024",
-                "actions": {
-                  "Emergency_Scale_F1024_to_F2048": {
-                    "type": "Http",
-                    "inputs": {
-                      "method": "PATCH",
-                      "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-                      "headers": {
-                        "Content-Type": "application/json"
-                      },
-                      "body": {
-                        "sku": {
-                          "name": "F2048",
-                          "tier": "Fabric"
-                        }
-                      },
-                      "authentication": {
-                        "type": "ManagedServiceIdentity"
-                      }
-                    },
-                    "runAfter": {}
-                  },
-                  "Send_Email_Emergency_F1024_F2048": {
-                    "type": "ApiConnection",
-                    "inputs": {
-                      "host": {
-                        "connection": {
-                          "name": "@parameters('$connections')['office365']['connectionId']"
-                        }
-                      },
-                      "method": "post",
-                      "path": "/v2/Mail",
-                      "body": {
-                        "To": "@{parameters('notificationEmail')}",
-                        "Subject": "\ud83d\udea8 Fabric Capacity Scaled: F1024 \u2192 F2048",
-                        "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #dc3545; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #dc3545; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>\ud83d\udea8 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F1024 <span class=\"arrow\">\u2192</span> F2048</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> CRITICAL</p>\n        <p><strong>Reason:</strong> \ud83d\udea8 CRITICAL EMERGENCY: Instant CU >= 95%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">\ud83e\udd16 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
-                        "Importance": "High"
-                      }
-                    },
-                    "runAfter": {
-                      "Emergency_Scale_F1024_to_F2048": [
-                        "Succeeded"
-                      ]
-                    }
-                  },
-                  "Set_Decision_Emergency_F2048": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "Decision",
-                      "value": "EMERGENCY_F1024_to_F2048"
-                    },
-                    "runAfter": {
-                      "Send_Email_Emergency_F1024_F2048": [
-                        "Succeeded"
-                      ]
-                    }
-                  },
-                  "Update_LastScaleUpTime_Emergency_F2048": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "LastScaleUpTime",
-                      "value": "@utcNow()"
-                    },
-                    "runAfter": {
-                      "Set_Decision_Emergency_F2048": [
-                        "Succeeded"
-                      ]
-                    }
-                  }
-                }
-              }
-            },
-            "default": {
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "actions": {
+    "Check_Critical_Emergency": {
+      "actions": {
+        "Emergency_Scale_Decision": {
+          "cases": {
+            "F1024": {
               "actions": {
-                "Set_Decision_Emergency_Stay": {
-                  "type": "SetVariable",
-                  "inputs": {
-                    "name": "Decision",
-                    "value": "EMERGENCY_Stay_@{variables('CurrentSKU')}"
-                  },
-                  "runAfter": {}
-                }
-              }
-            },
-            "runAfter": {}
-          }
-        },
-        "else": {
-          "actions": {
-            "Check_Cooldown_And_Decide": {
-              "type": "If",
-              "expression": {
-                "and": [
-                  {
-                    "greaterOrEquals": [
-                      "@ticks(utcNow())",
-                      "@ticks(addMinutes(variables('LastScaleUpTime'), 30))"
-                    ]
-                  }
-                ]
-              },
-              "actions": {
-                "Make_Scaling_Decision": {
-                  "type": "Switch",
-                  "expression": "@variables('CurrentSKU')",
-                  "cases": {
-                    "F512": {
-                      "case": "F512",
-                      "actions": {
-                        "Decide_F512_Action": {
-                          "type": "If",
-                          "expression": {
-                            "and": [
-                              {
-                                "greaterOrEquals": [
-                                  "@variables('AvgCU45Min')",
-                                  60
-                                ]
-                              },
-                              {
-                                "greaterOrEquals": [
-                                  "@variables('CurrentCU')",
-                                  70
-                                ]
-                              }
-                            ]
-                          },
-                          "actions": {
-                            "Scale_F512_to_F1024": {
-                              "type": "Http",
-                              "inputs": {
-                                "method": "PATCH",
-                                "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-                                "headers": {
-                                  "Content-Type": "application/json"
-                                },
-                                "body": {
-                                  "sku": {
-                                    "name": "F1024",
-                                    "tier": "Fabric"
-                                  }
-                                },
-                                "authentication": {
-                                  "type": "ManagedServiceIdentity"
-                                }
-                              },
-                              "runAfter": {}
-                            },
-                            "Send_Email_F512_F1024": {
-                              "type": "ApiConnection",
-                              "inputs": {
-                                "host": {
-                                  "connection": {
-                                    "name": "@parameters('$connections')['office365']['connectionId']"
-                                  }
-                                },
-                                "method": "post",
-                                "path": "/v2/Mail",
-                                "body": {
-                                  "To": "@{parameters('notificationEmail')}",
-                                  "Subject": "\u26a0\ufe0f Fabric Capacity Scaled: F512 \u2192 F1024",
-                                  "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #ffc107; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #ffc107; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>\u26a0\ufe0f Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F512 <span class=\"arrow\">\u2192</span> F1024</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> HIGH</p>\n        <p><strong>Reason:</strong> 30min avg >= 60% AND instant >= 70% (sustained load)</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">\ud83e\udd16 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
-                                  "Importance": "Normal"
-                                }
-                              },
-                              "runAfter": {}
-                            },
-                            "Set_Decision_ScaleUp_F1024": {
-                              "type": "SetVariable",
-                              "inputs": {
-                                "name": "Decision",
-                                "value": "ScaleUp_F512_to_F1024"
-                              },
-                              "runAfter": {
-                                "Send_Email_F512_F1024": [
-                                  "Succeeded"
-                                ]
-                              }
-                            },
-                            "Update_LastScaleUpTime_F1024": {
-                              "type": "SetVariable",
-                              "inputs": {
-                                "name": "LastScaleUpTime",
-                                "value": "@utcNow()"
-                              },
-                              "runAfter": {
-                                "Set_Decision_ScaleUp_F1024": [
-                                  "Succeeded"
-                                ]
-                              }
-                            }
-                          },
-                          "else": {
-                            "actions": {
-                              "Set_Decision_Stay_F512": {
-                                "type": "SetVariable",
-                                "inputs": {
-                                  "name": "Decision",
-                                  "value": "NoAction_Stay_F512"
-                                },
-                                "runAfter": {}
-                              }
-                            }
-                          },
-                          "runAfter": {}
-                        }
-                      }
+                "Check_Scale_Result": {
+                  "actions": {
+                    "Send_Email_Scale_Success": {
+                      "inputs": {
+                        "body": {
+                          "Body": "<html><head><style>body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)}.header{background:#dc3545;color:#fff;padding:25px;text-align:center}.header h1{margin:0;font-size:24px}.content{padding:30px}.sku-change{background:#f8f9fa;padding:20px;border-radius:6px;margin:20px 0;text-align:center;font-size:32px;font-weight:700}.arrow{color:#dc3545;margin:0 15px}.metrics{background:#f8f9fa;padding:15px;border-radius:4px;margin:15px 0}.metrics p{margin:8px 0;color:#495057}.footer{background:#f8f9fa;padding:15px;text-align:center;font-size:12px;color:#6c757d}</style></head><body><div class='container'><div class='header'><h1>🚨 EMERGENCY Scale Succeeded</h1></div><div class='content'><div class='sku-change'>F1024 <span class='arrow'>→</span> F2048</div><div class='metrics'><p><strong>Priority:</strong> CRITICAL</p><p><strong>Reason:</strong> Emergency triggered (CU>=95% or Throttle>0 or Reject>=0.5%)</p><p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p><p><strong>ThrottleCount:</strong> @{variables('ThrottleCount')}</p><p><strong>RejectionPct:</strong> @{variables('RejectionPct')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p></div></div><div class='footer'>🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div></div></body></html>",
+                          "Importance": "High",
+                          "Subject": "🚨 Fabric Capacity Scaled: F1024 → F2048",
+                          "To": "@{parameters('notificationEmail')}"
+                        },
+                        "host": {
+                          "connection": {
+                            "name": "@parameters('$connections')['office365']['connectionId']"
+                          }
+                        },
+                        "method": "post",
+                        "path": "/v2/Mail"
+                      },
+                      "runAfter": {},
+                      "type": "ApiConnection"
                     },
-                    "F1024": {
-                      "case": "F1024",
-                      "actions": {
-                        "Decide_F1024_Action": {
-                          "type": "If",
-                          "expression": {
-                            "and": [
-                              {
-                                "greaterOrEquals": [
-                                  "@variables('AvgCU45Min')",
-                                  75
-                                ]
-                              },
-                              {
-                                "greaterOrEquals": [
-                                  "@variables('CurrentCU')",
-                                  85
-                                ]
-                              }
-                            ]
-                          },
-                          "actions": {
-                            "Scale_F1024_to_F2048": {
-                              "type": "Http",
-                              "inputs": {
-                                "method": "PATCH",
-                                "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-                                "headers": {
-                                  "Content-Type": "application/json"
-                                },
-                                "body": {
-                                  "sku": {
-                                    "name": "F2048",
-                                    "tier": "Fabric"
-                                  }
-                                },
-                                "authentication": {
-                                  "type": "ManagedServiceIdentity"
-                                }
-                              },
-                              "runAfter": {}
-                            },
-                            "Send_Email_F1024_F2048": {
-                              "type": "ApiConnection",
-                              "inputs": {
-                                "host": {
-                                  "connection": {
-                                    "name": "@parameters('$connections')['office365']['connectionId']"
-                                  }
-                                },
-                                "method": "post",
-                                "path": "/v2/Mail",
-                                "body": {
-                                  "To": "@{parameters('notificationEmail')}",
-                                  "Subject": "\ud83d\udea8 Fabric Capacity Scaled: F1024 \u2192 F2048",
-                                  "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #dc3545; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #dc3545; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>\ud83d\udea8 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F1024 <span class=\"arrow\">\u2192</span> F2048</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> CRITICAL</p>\n        <p><strong>Reason:</strong> 30min avg >= 75% AND instant >= 85% (sustained high load)</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">\ud83e\udd16 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
-                                  "Importance": "High"
-                                }
-                              },
-                              "runAfter": {
-                                "Scale_F1024_to_F2048": [
-                                  "Succeeded"
-                                ]
-                              }
-                            },
-                            "Set_Decision_ScaleUp_F2048": {
-                              "type": "SetVariable",
-                              "inputs": {
-                                "name": "Decision",
-                                "value": "ScaleUp_F1024_to_F2048"
-                              },
-                              "runAfter": {
-                                "Send_Email_F1024_F2048": [
-                                  "Succeeded"
-                                ]
-                              }
-                            },
-                            "Update_LastScaleUpTime_F2048": {
-                              "type": "SetVariable",
-                              "inputs": {
-                                "name": "LastScaleUpTime",
-                                "value": "@utcNow()"
-                              },
-                              "runAfter": {
-                                "Set_Decision_ScaleUp_F2048": [
-                                  "Succeeded"
-                                ]
-                              }
-                            }
-                          },
-                          "else": {
-                            "actions": {
-                              "Check_ScaleDown_F1024": {
-                                "type": "If",
-                                "expression": {
-                                  "and": [
-                                    {
-                                      "lessOrEquals": [
-                                        "@variables('AvgCU45Min')",
-                                        25
-                                      ]
-                                    },
-                                    {
-                                      "lessOrEquals": [
-                                        "@variables('CurrentCU')",
-                                        40
-                                      ]
-                                    }
-                                  ]
-                                },
-                                "actions": {
-                                  "Scale_F1024_to_F512": {
-                                    "type": "Http",
-                                    "inputs": {
-                                      "method": "PATCH",
-                                      "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-                                      "headers": {
-                                        "Content-Type": "application/json"
-                                      },
-                                      "body": {
-                                        "sku": {
-                                          "name": "F512",
-                                          "tier": "Fabric"
-                                        }
-                                      },
-                                      "authentication": {
-                                        "type": "ManagedServiceIdentity"
-                                      }
-                                    },
-                                    "runAfter": {}
-                                  },
-                                  "Send_Email_F1024_F512": {
-                                    "type": "ApiConnection",
-                                    "inputs": {
-                                      "host": {
-                                        "connection": {
-                                          "name": "@parameters('$connections')['office365']['connectionId']"
-                                        }
-                                      },
-                                      "method": "post",
-                                      "path": "/v2/Mail",
-                                      "body": {
-                                        "To": "@{parameters('notificationEmail')}",
-                                        "Subject": "\ud83d\udcc9 Fabric Capacity Scaled: F1024 \u2192 F512",
-                                        "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #28a745; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #28a745; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>\ud83d\udcc9 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F1024 <span class=\"arrow\">\u2192</span> F512</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> INFO</p>\n        <p><strong>Reason:</strong> 90min avg <= 25% AND instant <= 40%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">\ud83e\udd16 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
-                                        "Importance": "Normal"
-                                      }
-                                    },
-                                    "runAfter": {
-                                      "Scale_F1024_to_F512": [
-                                        "Succeeded"
-                                      ]
-                                    }
-                                  },
-                                  "Set_Decision_ScaleDown_F512": {
-                                    "type": "SetVariable",
-                                    "inputs": {
-                                      "name": "Decision",
-                                      "value": "ScaleDown_F1024_to_F512"
-                                    },
-                                    "runAfter": {
-                                      "Send_Email_F1024_F512": [
-                                        "Succeeded"
-                                      ]
-                                    }
-                                  }
-                                },
-                                "else": {
-                                  "actions": {
-                                    "Set_Decision_Stay_F1024": {
-                                      "type": "SetVariable",
-                                      "inputs": {
-                                        "name": "Decision",
-                                        "value": "NoAction_Stay_F1024"
-                                      },
-                                      "runAfter": {}
-                                    }
-                                  }
-                                },
-                                "runAfter": {}
-                              }
-                            }
-                          },
-                          "runAfter": {}
-                        }
-                      }
+                    "Set_Decision_Success": {
+                      "inputs": {
+                        "name": "Decision",
+                        "value": "EMERGENCY_F1024_to_F2048"
+                      },
+                      "runAfter": {
+                        "Send_Email_Scale_Success": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "SetVariable"
                     },
-                    "F2048": {
-                      "case": "F2048",
-                      "actions": {
-                        "Decide_F2048_Action": {
-                          "type": "If",
-                          "expression": {
-                            "and": [
-                              {
-                                "lessOrEquals": [
-                                  "@variables('AvgCU45Min')",
-                                  50
-                                ]
-                              },
-                              {
-                                "lessOrEquals": [
-                                  "@variables('CurrentCU')",
-                                  60
-                                ]
-                              }
-                            ]
-                          },
-                          "actions": {
-                            "Scale_F2048_to_F1024": {
-                              "type": "Http",
-                              "inputs": {
-                                "method": "PATCH",
-                                "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01",
-                                "headers": {
-                                  "Content-Type": "application/json"
-                                },
-                                "body": {
-                                  "sku": {
-                                    "name": "F1024",
-                                    "tier": "Fabric"
-                                  }
-                                },
-                                "authentication": {
-                                  "type": "ManagedServiceIdentity"
-                                }
-                              },
-                              "runAfter": {}
-                            },
-                            "Send_Email_F2048_F1024": {
-                              "type": "ApiConnection",
-                              "inputs": {
-                                "host": {
-                                  "connection": {
-                                    "name": "@parameters('$connections')['office365']['connectionId']"
-                                  }
-                                },
-                                "method": "post",
-                                "path": "/v2/Mail",
-                                "body": {
-                                  "To": "@{parameters('notificationEmail')}",
-                                  "Subject": "\ud83d\udcc9 Fabric Capacity Scaled: F2048 \u2192 F1024",
-                                  "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #28a745; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #28a745; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>\ud83d\udcc9 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F2048 <span class=\"arrow\">\u2192</span> F1024</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> INFO</p>\n        <p><strong>Reason:</strong> 90min avg <= 50% AND instant <= 60%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">\ud83e\udd16 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
-                                  "Importance": "Normal"
-                                }
-                              },
-                              "runAfter": {
-                                "Scale_F2048_to_F1024": [
-                                  "Succeeded"
-                                ]
-                              }
-                            },
-                            "Set_Decision_ScaleDown_F1024": {
-                              "type": "SetVariable",
-                              "inputs": {
-                                "name": "Decision",
-                                "value": "ScaleDown_F2048_to_F1024"
-                              },
-                              "runAfter": {
-                                "Send_Email_F2048_F1024": [
-                                  "Succeeded"
-                                ]
-                              }
-                            }
-                          },
-                          "else": {
-                            "actions": {
-                              "Set_Decision_Stay_F2048": {
-                                "type": "SetVariable",
-                                "inputs": {
-                                  "name": "Decision",
-                                  "value": "NoAction_Stay_F2048"
-                                },
-                                "runAfter": {}
-                              }
-                            }
-                          },
-                          "runAfter": {}
-                        }
-                      }
+                    "Update_LastScaleUpTime": {
+                      "inputs": {
+                        "name": "LastScaleUpTime",
+                        "value": "@utcNow()"
+                      },
+                      "runAfter": {
+                        "Set_Decision_Success": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "SetVariable"
                     }
                   },
-                  "default": {
+                  "else": {
                     "actions": {
-                      "Set_Decision_Stay_Current": {
-                        "type": "SetVariable",
+                      "Send_Email_Scale_Blocked": {
+                        "inputs": {
+                          "body": {
+                            "Body": "<html><head><style>body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;background:#f5f5f5}.container{max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)}.header{background:#ffc107;color:#000;padding:25px;text-align:center}.header h1{margin:0;font-size:24px}.content{padding:30px}.sku-change{background:#f8f9fa;padding:20px;border-radius:6px;margin:20px 0;text-align:center;font-size:32px;font-weight:700}.arrow{color:#ffc107;margin:0 15px}.metrics{background:#f8f9fa;padding:15px;border-radius:4px;margin:15px 0}.metrics p{margin:8px 0;color:#495057}.footer{background:#f8f9fa;padding:15px;text-align:center;font-size:12px;color:#6c757d}.warning{background:#fff3cd;padding:15px;border-radius:4px;margin:15px 0;border-left:4px solid #ffc107}</style></head><body><div class='container'><div class='header'><h1>⚠️ Emergency Scale BLOCKED</h1></div><div class='content'><div class='sku-change'>F1024 <span class='arrow'>✗</span> F2048</div><div class='warning'><p><strong>Scale blocked due to Azure quota limit.</strong></p><p>The sum of all Fabric capacities would exceed regional quota (2048 CU).</p></div><div class='metrics'><p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p><p><strong>ThrottleCount:</strong> @{variables('ThrottleCount')}</p><p><strong>RejectionPct:</strong> @{variables('RejectionPct')}%</p><p><strong>Timestamp:</strong> @{utcNow()}</p></div><p>The system will continue to normal scaling logic. Consider requesting a quota increase if this persists.</p></div><div class='footer'>🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div></div></body></html>",
+                            "Importance": "High",
+                            "Subject": "⚠️ Fabric Emergency Scale BLOCKED: F1024 → F2048 (Quota Limit)",
+                            "To": "@{parameters('notificationEmail')}"
+                          },
+                          "host": {
+                            "connection": {
+                              "name": "@parameters('$connections')['office365']['connectionId']"
+                            }
+                          },
+                          "method": "post",
+                          "path": "/v2/Mail"
+                        },
+                        "runAfter": {},
+                        "type": "ApiConnection"
+                      },
+                      "Set_Decision_Blocked": {
                         "inputs": {
                           "name": "Decision",
-                          "value": "@concat('NoAction_Stay_', variables('CurrentSKU'))"
+                          "value": "EMERGENCY_BLOCKED_F1024_quota_limit"
                         },
-                        "runAfter": {}
+                        "runAfter": {
+                          "Send_Email_Scale_Blocked": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "SetVariable"
                       }
                     }
                   },
-                  "runAfter": {}
-                }
-              },
-              "else": {
-                "actions": {
-                  "Set_Decision_Cooldown": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "Decision",
-                      "value": "@concat('Cooldown_Stay_', variables('CurrentSKU'))"
-                    },
-                    "runAfter": {}
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@result('Emergency_Scale_Scope')[0]['status']",
+                          "Succeeded"
+                        ]
+                      }
+                    ]
                   },
-                  "Set_Reason_Cooldown": {
-                    "type": "SetVariable",
-                    "inputs": {
-                      "name": "ScalingReason",
-                      "value": "30-minute cooldown active after last scale-up"
-                    },
-                    "runAfter": {
-                      "Set_Decision_Cooldown": [
-                        "Succeeded"
-                      ]
+                  "runAfter": {
+                    "Emergency_Scale_Scope": [
+                      "Succeeded",
+                      "Failed"
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Emergency_Scale_Scope": {
+                  "actions": {
+                    "Emergency_Scale_F1024_to_F2048": {
+                      "inputs": {
+                        "authentication": {
+                          "type": "ManagedServiceIdentity"
+                        },
+                        "body": {
+                          "sku": {
+                            "name": "F2048",
+                            "tier": "Fabric"
+                          }
+                        },
+                        "headers": {
+                          "Content-Type": "application/json"
+                        },
+                        "method": "PATCH",
+                        "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+                      },
+                      "runAfter": {},
+                      "type": "Http"
                     }
-                  }
+                  },
+                  "runAfter": {},
+                  "type": "Scope"
                 }
               },
-              "runAfter": {}
-            }
-          }
-        },
-        "runAfter": {
-          "Set_RejectionPct": [
-            "Succeeded"
-          ]
-        }
-      },
-      "Log_To_AppInsights": {
-        "type": "Http",
-        "inputs": {
-          "method": "POST",
-          "uri": "https://dc.applicationinsights.azure.com/v2/track",
-          "headers": {
-            "Content-Type": "application/json"
-          },
-          "body": {
-            "name": "Microsoft.ApplicationInsights.Event",
-            "time": "@{utcNow()}",
-            "iKey": "@{parameters('appInsightsInstrumentationKey')}",
-            "data": {
-              "baseType": "EventData",
-              "baseData": {
-                "name": "FabricAutoScale",
-                "properties": {
-                  "Decision": "@{variables('Decision')}",
-                  "CurrentSKU": "@{variables('CurrentSKU')}",
-                  "CurrentCU": "@{variables('CurrentCU')}",
-                  "AvgCU45Min": "@{variables('AvgCU45Min')}",
-                  "ThrottleCount": "@{variables('ThrottleCount')}",
-                  "RejectionPct": "@{variables('RejectionPct')}",
-                  "LastScaleUpTime": "@{variables('LastScaleUpTime')}",
-                  "ScalingReason": "@{variables('ScalingReason')}",
-                  "DataTimestamp": "@{variables('DataTimestamp')}",
-                  "GulfTime": "@{variables('GulfTime')}",
-                  "Timestamp": "@{utcNow()}"
+              "case": "F1024"
+            },
+            "F512": {
+              "actions": {
+                "Emergency_Scale_F512_to_F1024": {
+                  "inputs": {
+                    "authentication": {
+                      "type": "ManagedServiceIdentity"
+                    },
+                    "body": {
+                      "sku": {
+                        "name": "F1024",
+                        "tier": "Fabric"
+                      }
+                    },
+                    "headers": {
+                      "Content-Type": "application/json"
+                    },
+                    "method": "PATCH",
+                    "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+                  },
+                  "runAfter": {},
+                  "type": "Http"
+                },
+                "Send_Email_Emergency_F512_F1024": {
+                  "inputs": {
+                    "body": {
+                      "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #dc3545; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #dc3545; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>🚨 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F512 <span class=\"arrow\">→</span> F1024</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> CRITICAL</p>\n        <p><strong>Reason:</strong> 🚨 CRITICAL EMERGENCY: Instant CU >= 95%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
+                      "Importance": "High",
+                      "Subject": "🚨 Fabric Capacity Scaled: F512 → F1024",
+                      "To": "@{parameters('notificationEmail')}"
+                    },
+                    "host": {
+                      "connection": {
+                        "name": "@parameters('$connections')['office365']['connectionId']"
+                      }
+                    },
+                    "method": "post",
+                    "path": "/v2/Mail"
+                  },
+                  "runAfter": {
+                    "Emergency_Scale_F512_to_F1024": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "ApiConnection"
+                },
+                "Set_Decision_Emergency_F1024": {
+                  "inputs": {
+                    "name": "Decision",
+                    "value": "EMERGENCY_F512_to_F1024"
+                  },
+                  "runAfter": {
+                    "Send_Email_Emergency_F512_F1024": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable"
+                },
+                "Update_LastScaleUpTime_Emergency_F1024": {
+                  "inputs": {
+                    "name": "LastScaleUpTime",
+                    "value": "@utcNow()"
+                  },
+                  "runAfter": {
+                    "Set_Decision_Emergency_F1024": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable"
                 }
+              },
+              "case": "F512"
+            }
+          },
+          "default": {
+            "actions": {
+              "Set_Decision_Emergency_Stay": {
+                "inputs": {
+                  "name": "Decision",
+                  "value": "EMERGENCY_Stay_@{variables('CurrentSKU')}"
+                },
+                "runAfter": {},
+                "type": "SetVariable"
               }
             }
+          },
+          "expression": "@variables('CurrentSKU')",
+          "runAfter": {},
+          "type": "Switch"
+        }
+      },
+      "else": {
+        "actions": {
+          "Check_Cooldown_And_Decide": {
+            "actions": {
+              "Make_Scaling_Decision": {
+                "cases": {
+                  "F1024": {
+                    "actions": {
+                      "Decide_F1024_Action": {
+                        "actions": {
+                          "Scale_F1024_to_F2048": {
+                            "inputs": {
+                              "authentication": {
+                                "type": "ManagedServiceIdentity"
+                              },
+                              "body": {
+                                "sku": {
+                                  "name": "F2048",
+                                  "tier": "Fabric"
+                                }
+                              },
+                              "headers": {
+                                "Content-Type": "application/json"
+                              },
+                              "method": "PATCH",
+                              "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+                            },
+                            "runAfter": {},
+                            "type": "Http"
+                          },
+                          "Send_Email_F1024_F2048": {
+                            "inputs": {
+                              "body": {
+                                "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #dc3545; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #dc3545; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>🚨 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F1024 <span class=\"arrow\">→</span> F2048</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> CRITICAL</p>\n        <p><strong>Reason:</strong> 30min avg >= 75% AND instant >= 85% (sustained high load)</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
+                                "Importance": "High",
+                                "Subject": "🚨 Fabric Capacity Scaled: F1024 → F2048",
+                                "To": "@{parameters('notificationEmail')}"
+                              },
+                              "host": {
+                                "connection": {
+                                  "name": "@parameters('$connections')['office365']['connectionId']"
+                                }
+                              },
+                              "method": "post",
+                              "path": "/v2/Mail"
+                            },
+                            "runAfter": {
+                              "Scale_F1024_to_F2048": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "ApiConnection"
+                          },
+                          "Set_Decision_ScaleUp_F2048": {
+                            "inputs": {
+                              "name": "Decision",
+                              "value": "ScaleUp_F1024_to_F2048"
+                            },
+                            "runAfter": {
+                              "Send_Email_F1024_F2048": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "SetVariable"
+                          },
+                          "Update_LastScaleUpTime_F2048": {
+                            "inputs": {
+                              "name": "LastScaleUpTime",
+                              "value": "@utcNow()"
+                            },
+                            "runAfter": {
+                              "Set_Decision_ScaleUp_F2048": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "SetVariable"
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Check_ScaleDown_F1024": {
+                              "actions": {
+                                "Scale_F1024_to_F512": {
+                                  "inputs": {
+                                    "authentication": {
+                                      "type": "ManagedServiceIdentity"
+                                    },
+                                    "body": {
+                                      "sku": {
+                                        "name": "F512",
+                                        "tier": "Fabric"
+                                      }
+                                    },
+                                    "headers": {
+                                      "Content-Type": "application/json"
+                                    },
+                                    "method": "PATCH",
+                                    "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+                                  },
+                                  "runAfter": {},
+                                  "type": "Http"
+                                },
+                                "Send_Email_F1024_F512": {
+                                  "inputs": {
+                                    "body": {
+                                      "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #28a745; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #28a745; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>📉 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F1024 <span class=\"arrow\">→</span> F512</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> INFO</p>\n        <p><strong>Reason:</strong> 90min avg <= 25% AND instant <= 40%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
+                                      "Importance": "Normal",
+                                      "Subject": "📉 Fabric Capacity Scaled: F1024 → F512",
+                                      "To": "@{parameters('notificationEmail')}"
+                                    },
+                                    "host": {
+                                      "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                      }
+                                    },
+                                    "method": "post",
+                                    "path": "/v2/Mail"
+                                  },
+                                  "runAfter": {
+                                    "Scale_F1024_to_F512": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "ApiConnection"
+                                },
+                                "Set_Decision_ScaleDown_F512": {
+                                  "inputs": {
+                                    "name": "Decision",
+                                    "value": "ScaleDown_F1024_to_F512"
+                                  },
+                                  "runAfter": {
+                                    "Send_Email_F1024_F512": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "SetVariable"
+                                }
+                              },
+                              "else": {
+                                "actions": {
+                                  "Set_Decision_Stay_F1024": {
+                                    "inputs": {
+                                      "name": "Decision",
+                                      "value": "NoAction_Stay_F1024"
+                                    },
+                                    "runAfter": {},
+                                    "type": "SetVariable"
+                                  }
+                                }
+                              },
+                              "expression": {
+                                "and": [
+                                  {
+                                    "lessOrEquals": [
+                                      "@variables('AvgCU45Min')",
+                                      25
+                                    ]
+                                  },
+                                  {
+                                    "lessOrEquals": [
+                                      "@variables('CurrentCU')",
+                                      40
+                                    ]
+                                  }
+                                ]
+                              },
+                              "runAfter": {},
+                              "type": "If"
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "greaterOrEquals": [
+                                "@variables('AvgCU45Min')",
+                                75
+                              ]
+                            },
+                            {
+                              "greaterOrEquals": [
+                                "@variables('CurrentCU')",
+                                85
+                              ]
+                            }
+                          ]
+                        },
+                        "runAfter": {},
+                        "type": "If"
+                      }
+                    },
+                    "case": "F1024"
+                  },
+                  "F2048": {
+                    "actions": {
+                      "Decide_F2048_Action": {
+                        "actions": {
+                          "Scale_F2048_to_F1024": {
+                            "inputs": {
+                              "authentication": {
+                                "type": "ManagedServiceIdentity"
+                              },
+                              "body": {
+                                "sku": {
+                                  "name": "F1024",
+                                  "tier": "Fabric"
+                                }
+                              },
+                              "headers": {
+                                "Content-Type": "application/json"
+                              },
+                              "method": "PATCH",
+                              "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+                            },
+                            "runAfter": {},
+                            "type": "Http"
+                          },
+                          "Send_Email_F2048_F1024": {
+                            "inputs": {
+                              "body": {
+                                "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #28a745; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #28a745; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>📉 Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F2048 <span class=\"arrow\">→</span> F1024</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> INFO</p>\n        <p><strong>Reason:</strong> 90min avg <= 50% AND instant <= 60%</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
+                                "Importance": "Normal",
+                                "Subject": "📉 Fabric Capacity Scaled: F2048 → F1024",
+                                "To": "@{parameters('notificationEmail')}"
+                              },
+                              "host": {
+                                "connection": {
+                                  "name": "@parameters('$connections')['office365']['connectionId']"
+                                }
+                              },
+                              "method": "post",
+                              "path": "/v2/Mail"
+                            },
+                            "runAfter": {
+                              "Scale_F2048_to_F1024": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "ApiConnection"
+                          },
+                          "Set_Decision_ScaleDown_F1024": {
+                            "inputs": {
+                              "name": "Decision",
+                              "value": "ScaleDown_F2048_to_F1024"
+                            },
+                            "runAfter": {
+                              "Send_Email_F2048_F1024": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "SetVariable"
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Set_Decision_Stay_F2048": {
+                              "inputs": {
+                                "name": "Decision",
+                                "value": "NoAction_Stay_F2048"
+                              },
+                              "runAfter": {},
+                              "type": "SetVariable"
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "lessOrEquals": [
+                                "@variables('AvgCU45Min')",
+                                50
+                              ]
+                            },
+                            {
+                              "lessOrEquals": [
+                                "@variables('CurrentCU')",
+                                60
+                              ]
+                            }
+                          ]
+                        },
+                        "runAfter": {},
+                        "type": "If"
+                      }
+                    },
+                    "case": "F2048"
+                  },
+                  "F512": {
+                    "actions": {
+                      "Decide_F512_Action": {
+                        "actions": {
+                          "Scale_F512_to_F1024": {
+                            "inputs": {
+                              "authentication": {
+                                "type": "ManagedServiceIdentity"
+                              },
+                              "body": {
+                                "sku": {
+                                  "name": "F1024",
+                                  "tier": "Fabric"
+                                }
+                              },
+                              "headers": {
+                                "Content-Type": "application/json"
+                              },
+                              "method": "PATCH",
+                              "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+                            },
+                            "runAfter": {},
+                            "type": "Http"
+                          },
+                          "Send_Email_F512_F1024": {
+                            "inputs": {
+                              "body": {
+                                "Body": "<html>\n<head>\n<style>\n  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n  .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }\n  .header { background: #ffc107; color: #ffffff; padding: 25px; text-align: center; }\n  .header h1 { margin: 0; font-size: 24px; font-weight: 600; }\n  .content { padding: 30px; }\n  .sku-change { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; text-align: center; }\n  .sku-change .from-to { font-size: 32px; font-weight: bold; color: #333; }\n  .sku-change .arrow { color: #ffc107; margin: 0 15px; }\n  .metrics { background: #f8f9fa; padding: 15px; border-radius: 4px; margin: 15px 0; }\n  .metrics p { margin: 8px 0; color: #495057; }\n  .footer { background: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }\n</style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\"><h1>⚠️ Fabric Capacity Scaled</h1></div>\n    <div class=\"content\">\n      <div class=\"sku-change\">\n        <div class=\"from-to\">F512 <span class=\"arrow\">→</span> F1024</div>\n      </div>\n      <div class=\"metrics\">\n        <p><strong>Priority:</strong> HIGH</p>\n        <p><strong>Reason:</strong> 30min avg >= 60% AND instant >= 70% (sustained load)</p>\n        <p><strong>Current CU:</strong> @{variables('CurrentCU')}%</p>\n        <p><strong>90-Min Average:</strong> @{variables('AvgCU45Min')}%</p>\n        <p><strong>Timestamp:</strong> @{utcNow()}</p>\n      </div>\n    </div>\n    <div class=\"footer\">🤖 Fabric Auto-Scaling | @{parameters('capacityName')}</div>\n  </div>\n</body>\n</html>",
+                                "Importance": "Normal",
+                                "Subject": "⚠️ Fabric Capacity Scaled: F512 → F1024",
+                                "To": "@{parameters('notificationEmail')}"
+                              },
+                              "host": {
+                                "connection": {
+                                  "name": "@parameters('$connections')['office365']['connectionId']"
+                                }
+                              },
+                              "method": "post",
+                              "path": "/v2/Mail"
+                            },
+                            "runAfter": {},
+                            "type": "ApiConnection"
+                          },
+                          "Set_Decision_ScaleUp_F1024": {
+                            "inputs": {
+                              "name": "Decision",
+                              "value": "ScaleUp_F512_to_F1024"
+                            },
+                            "runAfter": {
+                              "Send_Email_F512_F1024": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "SetVariable"
+                          },
+                          "Update_LastScaleUpTime_F1024": {
+                            "inputs": {
+                              "name": "LastScaleUpTime",
+                              "value": "@utcNow()"
+                            },
+                            "runAfter": {
+                              "Set_Decision_ScaleUp_F1024": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "SetVariable"
+                          }
+                        },
+                        "else": {
+                          "actions": {
+                            "Set_Decision_Stay_F512": {
+                              "inputs": {
+                                "name": "Decision",
+                                "value": "NoAction_Stay_F512"
+                              },
+                              "runAfter": {},
+                              "type": "SetVariable"
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "greaterOrEquals": [
+                                "@variables('AvgCU45Min')",
+                                60
+                              ]
+                            },
+                            {
+                              "greaterOrEquals": [
+                                "@variables('CurrentCU')",
+                                70
+                              ]
+                            }
+                          ]
+                        },
+                        "runAfter": {},
+                        "type": "If"
+                      }
+                    },
+                    "case": "F512"
+                  }
+                },
+                "default": {
+                  "actions": {
+                    "Set_Decision_Stay_Current": {
+                      "inputs": {
+                        "name": "Decision",
+                        "value": "@concat('NoAction_Stay_', variables('CurrentSKU'))"
+                      },
+                      "runAfter": {},
+                      "type": "SetVariable"
+                    }
+                  }
+                },
+                "expression": "@variables('CurrentSKU')",
+                "runAfter": {},
+                "type": "Switch"
+              }
+            },
+            "else": {
+              "actions": {
+                "Set_Decision_Cooldown": {
+                  "inputs": {
+                    "name": "Decision",
+                    "value": "@concat('Cooldown_Stay_', variables('CurrentSKU'))"
+                  },
+                  "runAfter": {},
+                  "type": "SetVariable"
+                },
+                "Set_Reason_Cooldown": {
+                  "inputs": {
+                    "name": "ScalingReason",
+                    "value": "30-minute cooldown active after last scale-up"
+                  },
+                  "runAfter": {
+                    "Set_Decision_Cooldown": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "SetVariable"
+                }
+              }
+            },
+            "expression": {
+              "and": [
+                {
+                  "greaterOrEquals": [
+                    "@ticks(utcNow())",
+                    "@ticks(addMinutes(variables('LastScaleUpTime'), 30))"
+                  ]
+                }
+              ]
+            },
+            "runAfter": {},
+            "type": "If"
+          }
+        }
+      },
+      "expression": {
+        "or": [
+          {
+            "greaterOrEquals": [
+              "@variables('CurrentCU')",
+              95
+            ]
+          },
+          {
+            "greater": [
+              "@variables('ThrottleCount')",
+              0
+            ]
+          },
+          {
+            "greaterOrEquals": [
+              "@variables('RejectionPct')",
+              0.5
+            ]
+          }
+        ]
+      },
+      "runAfter": {
+        "Set_RejectionPct": [
+          "Succeeded"
+        ]
+      },
+      "type": "If"
+    },
+    "Get_45Min_Average_CU": {
+      "inputs": {
+        "authentication": {
+          "audience": "https://analysis.windows.net/powerbi/api",
+          "type": "ManagedServiceIdentity"
+        },
+        "body": {
+          "queries": [
+            {
+              "query": "EVALUATE SUMMARIZE(FILTER('Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Capacity Id] = \"4C10F614-D276-4D59-BDE0-5BFA1E6414FC\" && 'Usage Summary (Last 1 hour)'[Timestamp] >= NOW() - 45/1440), \"Avg_CU_45Min\", AVERAGE('Usage Summary (Last 1 hour)'[Average CU %]))"
+            }
+          ],
+          "serializerSettings": {
+            "includeNulls": false
           }
         },
-        "runAfter": {
-          "Check_Critical_Emergency": [
-            "Succeeded",
-            "Failed",
-            "Skipped"
-          ]
-        }
-      }
+        "method": "POST",
+        "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries"
+      },
+      "runAfter": {
+        "Set_DataTimestamp": [
+          "Succeeded"
+        ]
+      },
+      "type": "Http"
     },
-    "outputs": {}
+    "Get_Current_Capacity": {
+      "inputs": {
+        "authentication": {
+          "type": "ManagedServiceIdentity"
+        },
+        "method": "GET",
+        "uri": "https://management.azure.com/subscriptions/@{parameters('capacitySubscriptionId')}/resourceGroups/@{parameters('capacityResourceGroup')}/providers/Microsoft.Fabric/capacities/@{parameters('capacityName')}?api-version=2023-11-01"
+      },
+      "runAfter": {
+        "Set_GulfTime": [
+          "Succeeded"
+        ]
+      },
+      "type": "Http"
+    },
+    "Get_Current_Metrics": {
+      "inputs": {
+        "authentication": {
+          "audience": "https://analysis.windows.net/powerbi/api",
+          "type": "ManagedServiceIdentity"
+        },
+        "body": {
+          "queries": [
+            {
+              "query": "EVALUATE SELECTCOLUMNS(TOPN(1, FILTER('Usage Summary (Last 1 hour)', 'Usage Summary (Last 1 hour)'[Capacity Id] = \"4C10F614-D276-4D59-BDE0-5BFA1E6414FC\"), 'Usage Summary (Last 1 hour)'[Timestamp], DESC), \"Max_CU\", 'Usage Summary (Last 1 hour)'[Average CU %], \"Data_Timestamp\", 'Usage Summary (Last 1 hour)'[Timestamp])"
+            }
+          ],
+          "serializerSettings": {
+            "includeNulls": false
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries"
+      },
+      "runAfter": {
+        "Set_LastScaleUpTime_From_Fabric": [
+          "Succeeded"
+        ]
+      },
+      "type": "Http"
+    },
+    "Get_Last_SKU_Change": {
+      "inputs": {
+        "authentication": {
+          "audience": "https://analysis.windows.net/powerbi/api",
+          "type": "ManagedServiceIdentity"
+        },
+        "body": {
+          "queries": [
+            {
+              "query": "EVALUATE VAR CurrentSKU = MAXX(TOPN(1, 'CU Detail', 'CU Detail'[Window start time], DESC), 'CU Detail'[SKU]) VAR Last30MinData = FILTER('CU Detail', 'CU Detail'[Window start time] >= NOW() - 30/1440) VAR FirstWithCurrentSKU = MINX(FILTER(Last30MinData, 'CU Detail'[SKU] = CurrentSKU), 'CU Detail'[Window start time]) RETURN ROW(\"LastScaleTime\", FirstWithCurrentSKU, \"CurrentSKU\", CurrentSKU)"
+            }
+          ],
+          "serializerSettings": {
+            "includeNulls": false
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries"
+      },
+      "runAfter": {
+        "Set_Current_SKU": [
+          "Succeeded"
+        ]
+      },
+      "type": "Http"
+    },
+    "Get_Throttle_Rejection_Metrics": {
+      "inputs": {
+        "authentication": {
+          "audience": "https://analysis.windows.net/powerbi/api",
+          "type": "ManagedServiceIdentity"
+        },
+        "body": {
+          "queries": [
+            {
+              "query": "EVALUATE VAR ThrottleData = FILTER('Items Throttled', 'Items Throttled'[Timestamp] >= NOW() - 5/1440 && 'Items Throttled'[Capacity Id] = \"4C10F614-D276-4D59-BDE0-5BFA1E6414FC\") VAR LatestCU = TOPN(1, 'CU Detail', 'CU Detail'[Window start time], DESC) RETURN ROW(\"ThrottleCount\", COUNTROWS(ThrottleData), \"InteractiveRejectionPct\", MAXX(LatestCU, 'CU Detail'[Interactive rejection %]), \"BackgroundRejectionPct\", MAXX(LatestCU, 'CU Detail'[Background rejection %]))"
+            }
+          ],
+          "serializerSettings": {
+            "includeNulls": true
+          }
+        },
+        "method": "POST",
+        "uri": "https://api.powerbi.com/v1.0/myorg/groups/@{parameters('powerBIWorkspaceId')}/datasets/@{parameters('powerBIDatasetId')}/executeQueries"
+      },
+      "runAfter": {
+        "Set_AvgCU45Min": [
+          "Succeeded"
+        ]
+      },
+      "type": "Http"
+    },
+    "Initialize_Variables": {
+      "inputs": {
+        "variables": [
+          {
+            "name": "CurrentSKU",
+            "type": "string",
+            "value": "F512"
+          },
+          {
+            "name": "CurrentCU",
+            "type": "float",
+            "value": 0
+          },
+          {
+            "name": "AvgCU45Min",
+            "type": "float",
+            "value": 0
+          },
+          {
+            "name": "LastScaleUpTime",
+            "type": "string",
+            "value": "1970-01-01T00:00:00Z"
+          },
+          {
+            "name": "Decision",
+            "type": "string",
+            "value": ""
+          },
+          {
+            "name": "ScalingReason",
+            "type": "string",
+            "value": ""
+          },
+          {
+            "name": "GulfTime",
+            "type": "string",
+            "value": ""
+          },
+          {
+            "name": "DataTimestamp",
+            "type": "string",
+            "value": ""
+          },
+          {
+            "name": "ThrottleCount",
+            "type": "integer",
+            "value": 0
+          },
+          {
+            "name": "RejectionPct",
+            "type": "float",
+            "value": 0
+          }
+        ]
+      },
+      "runAfter": {},
+      "type": "InitializeVariable"
+    },
+    "Log_To_AppInsights": {
+      "inputs": {
+        "body": {
+          "data": {
+            "baseData": {
+              "name": "FabricAutoScale",
+              "properties": {
+                "AvgCU45Min": "@{variables('AvgCU45Min')}",
+                "CurrentCU": "@{variables('CurrentCU')}",
+                "CurrentSKU": "@{variables('CurrentSKU')}",
+                "DataTimestamp": "@{variables('DataTimestamp')}",
+                "Decision": "@{variables('Decision')}",
+                "GulfTime": "@{variables('GulfTime')}",
+                "LastScaleUpTime": "@{variables('LastScaleUpTime')}",
+                "RejectionPct": "@{variables('RejectionPct')}",
+                "ScalingReason": "@{variables('ScalingReason')}",
+                "ThrottleCount": "@{variables('ThrottleCount')}",
+                "Timestamp": "@{utcNow()}"
+              }
+            },
+            "baseType": "EventData"
+          },
+          "iKey": "@{parameters('appInsightsInstrumentationKey')}",
+          "name": "Microsoft.ApplicationInsights.Event",
+          "time": "@{utcNow()}"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "uri": "https://dc.applicationinsights.azure.com/v2/track"
+      },
+      "runAfter": {
+        "Check_Critical_Emergency": [
+          "Succeeded",
+          "Failed",
+          "Skipped"
+        ]
+      },
+      "type": "Http"
+    },
+    "Set_AvgCU45Min": {
+      "inputs": {
+        "name": "AvgCU45Min",
+        "value": "@float(body('Get_45Min_Average_CU')['results'][0]['tables'][0]['rows'][0]['[Avg_CU_45Min]'])"
+      },
+      "runAfter": {
+        "Get_45Min_Average_CU": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_Current_CU": {
+      "inputs": {
+        "name": "CurrentCU",
+        "value": "@float(body('Get_Current_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[Max_CU]'])"
+      },
+      "runAfter": {
+        "Get_Current_Metrics": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_Current_SKU": {
+      "inputs": {
+        "name": "CurrentSKU",
+        "value": "@body('Get_Current_Capacity')?['sku']?['name']"
+      },
+      "runAfter": {
+        "Get_Current_Capacity": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_DataTimestamp": {
+      "inputs": {
+        "name": "DataTimestamp",
+        "value": "@{body('Get_Current_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[Data_Timestamp]']}"
+      },
+      "runAfter": {
+        "Set_Current_CU": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_GulfTime": {
+      "inputs": {
+        "name": "GulfTime",
+        "value": "@{convertTimeZone(utcNow(), 'UTC', 'Arabian Standard Time', 'yyyy-MM-dd HH:mm:ss')} GST"
+      },
+      "runAfter": {
+        "Initialize_Variables": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_LastScaleUpTime_From_Fabric": {
+      "inputs": {
+        "name": "LastScaleUpTime",
+        "value": "@{addHours(coalesce(body('Get_Last_SKU_Change')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[LastScaleTime]'], '1970-01-01T00:00:00Z'), -4)}"
+      },
+      "runAfter": {
+        "Get_Last_SKU_Change": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_RejectionPct": {
+      "inputs": {
+        "name": "RejectionPct",
+        "value": "@coalesce(float(body('Get_Throttle_Rejection_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[InteractiveRejectionPct]']), 0.0)"
+      },
+      "runAfter": {
+        "Set_ThrottleCount": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    },
+    "Set_ThrottleCount": {
+      "inputs": {
+        "name": "ThrottleCount",
+        "value": "@coalesce(body('Get_Throttle_Rejection_Metrics')?['results']?[0]?['tables']?[0]?['rows']?[0]?['[ThrottleCount]'], 0)"
+      },
+      "runAfter": {
+        "Get_Throttle_Rejection_Metrics": [
+          "Succeeded"
+        ]
+      },
+      "type": "SetVariable"
+    }
   },
+  "contentVersion": "1.0.0.0",
+  "outputs": {},
   "parameters": {
     "$connections": {
-      "type": "Object",
-      "value": {
-        "office365": {
-          "connectionId": "/subscriptions/<YOUR_SUBSCRIPTION_ID>/resourceGroups/<YOUR_RESOURCE_GROUP>/providers/Microsoft.Web/connections/office365",
-          "connectionName": "office365",
-          "connectionProperties": {},
-          "id": "/subscriptions/<YOUR_SUBSCRIPTION_ID>/providers/Microsoft.Web/locations/<YOUR_LOCATION>/managedApis/office365"
-        }
-      }
+      "defaultValue": {},
+      "type": "Object"
     },
     "appInsightsInstrumentationKey": {
-      "value": "<YOUR_APP_INSIGHTS_KEY>"
+      "defaultValue": "8dab8ed0-2b06-441e-9802-4a4a1815d988",
+      "type": "String"
     },
     "capacityName": {
-      "value": "<YOUR_CAPACITY_NAME>"
+      "defaultValue": "bifabricprdentreport01",
+      "type": "String"
     },
     "capacityResourceGroup": {
-      "value": "<YOUR_RESOURCE_GROUP>"
+      "defaultValue": "MHA-BI-PowerBI-Prod-RG",
+      "type": "String"
     },
     "capacitySubscriptionId": {
-      "value": "<YOUR_SUBSCRIPTION_ID>"
+      "defaultValue": "217454c4-5eb0-4c0d-a367-31c279a4f271",
+      "type": "String"
     },
     "notificationEmail": {
-      "value": "<YOUR_EMAIL>"
+      "defaultValue": "Abhishek.kr@alshaya.com",
+      "type": "String"
     },
     "powerBIDatasetId": {
-      "value": "<YOUR_DATASET_ID>"
+      "defaultValue": "c84a93c3-1bf9-4268-a71d-58fa6f97ecc6",
+      "type": "String"
     },
     "powerBIWorkspaceId": {
-      "value": "<YOUR_WORKSPACE_ID>"
+      "defaultValue": "fbddd6d0-4d1c-4072-85f4-1bea64b3a71b",
+      "type": "String"
+    }
+  },
+  "triggers": {
+    "Recurrence": {
+      "evaluatedRecurrence": {
+        "frequency": "Minute",
+        "interval": 5
+      },
+      "recurrence": {
+        "frequency": "Minute",
+        "interval": 5
+      },
+      "type": "Recurrence"
     }
   }
 }
