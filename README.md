@@ -77,10 +77,13 @@ Complete audit trail in Application Insights with detailed metrics and timestamp
 ```mermaid
 flowchart TD
     Start(["Every 5 Minutes"]) --> GetSKU["Get Current SKU<br/>F512 / F1024 / F2048"]
-    GetSKU --> GetMetrics["Get Metrics<br/>CU%, Avg45Min, Throttle, Rejection"]
-    GetMetrics --> Emergency{"Emergency?<br/>CU≥95% OR<br/>Throttle>0 OR<br/>Reject≥0.5%"}
+    GetSKU --> GetMetrics["Get Metrics from Power BI<br/>(filtered by Capacity ID)"]
+    GetMetrics --> ParseMetrics["Parse: CU%, Avg45Min,<br/>ThrottleCount, RejectionPct"]
+    ParseMetrics --> Emergency{"Emergency?<br/>CU≥95% OR<br/>Throttle>0 OR<br/>Reject≥0.5%"}
 
-    Emergency -->|Yes| EmergencyScale["🚨 EMERGENCY SCALE UP<br/>(Bypass Cooldown)"]
+    Emergency -->|Yes| CheckQuota{"Can Scale Up?<br/>(Quota Check)"}
+    CheckQuota -->|Yes| EmergencyScale["🚨 EMERGENCY SCALE UP<br/>(Bypass Cooldown)"]
+    CheckQuota -->|No/Fail| QuotaBlocked["⚠️ Scale Blocked<br/>(Quota Limit)"]
     Emergency -->|No| Cooldown{"Cooldown<br/>Active?"}
 
     Cooldown -->|Yes, < 30min| LogCooldown["Log: Cooldown Active"]
@@ -93,14 +96,18 @@ flowchart TD
     CheckScaleDown -->|No| NoAction["✓ No Action Needed"]
 
     EmergencyScale --> Notify["📧 Send Email"]
+    QuotaBlocked --> NotifyBlocked["📧 Send Blocked Email"]
     ScaleUp --> Notify
     ScaleDown --> Notify
     LogCooldown --> Log["📝 Log to App Insights"]
     NoAction --> Log
     Notify --> Log
+    NotifyBlocked --> Log
 
     style Emergency fill:#ffcdd2
     style EmergencyScale fill:#ef5350,color:#fff
+    style QuotaBlocked fill:#ffc107,color:#000
+    style CheckQuota fill:#fff9c4
     style ScaleUp fill:#81c784
     style ScaleDown fill:#fff176
     style NoAction fill:#e0e0e0
@@ -123,24 +130,27 @@ sequenceDiagram
     par Get Data
         LA->>Azure: GET Current SKU
         Azure-->>LA: F1024
-        LA->>PBI: POST DAX Query (CU%)
+        LA->>PBI: DAX Query (CU% + Capacity ID filter)
         PBI-->>LA: CurrentCU: 85%
-        LA->>PBI: POST DAX Query (Avg45)
+        LA->>PBI: DAX Query (Avg45 + Capacity ID filter)
         PBI-->>LA: AvgCU45: 72%
-        LA->>PBI: POST DAX Query (Throttle)
-        PBI-->>LA: Throttle: 0, Reject: 0%
+        LA->>PBI: DAX Query (Throttle + Capacity ID filter)
+        PBI-->>LA: ThrottleCount: 0, RejectionPct: 0%
     end
 
     LA->>LA: Decision Engine
-    Note over LA: CU=85%, Avg=72%<br/>F1024 threshold: 75%/85%<br/>→ Scale Up!
+    Note over LA: CU=85%, Avg=72%<br/>ThrottleCount=0 (filtered)<br/>F1024 threshold: 75%/85%<br/>→ Scale Up!
 
     LA->>Fabric: PATCH SKU → F2048
-    Fabric-->>LA: Success
-
-    par Notify & Log
-        LA->>Email: Send Alert
-        LA->>AI: Log Event
+    alt Scale Success
+        Fabric-->>LA: 200 OK
+        LA->>Email: Send Success Alert
+    else Quota Limit
+        Fabric-->>LA: 400 BadRequest (Quota)
+        LA->>Email: Send Blocked Alert
     end
+
+    LA->>AI: Log Event (Decision + Metrics)
 ```
 
 ---
@@ -771,6 +781,32 @@ curl -X PUT \
 
 ---
 
+#### 7. ThrottleCount Always High (Emergency Always Triggers)
+
+**Symptom:** Emergency scale triggers every run even when CU is low. ThrottleCount shows high values (100+) in App Insights logs.
+
+**Cause:** The `'Items Throttled'` table in Capacity Metrics contains data for ALL capacities, not just your target capacity. Without filtering by Capacity ID, the DAX query returns cumulative throttle counts.
+
+**Solution:** Add Capacity ID filter to the DAX query:
+
+```dax
+-- Before (wrong - returns all capacities):
+VAR ThrottleData = FILTER('Items Throttled',
+    'Items Throttled'[Timestamp] >= NOW() - 5/1440)
+
+-- After (correct - filters by your capacity):
+VAR ThrottleData = FILTER('Items Throttled',
+    'Items Throttled'[Timestamp] >= NOW() - 5/1440
+    && 'Items Throttled'[Capacity Id] = "YOUR-CAPACITY-ID-HERE")
+```
+
+**Important Notes:**
+- `'Items Throttled'` table HAS a `[Capacity Id]` column - use it!
+- `'CU Detail'` table does NOT have `[Capacity Id]` - don't filter it
+- Get your Capacity ID from Azure Portal → Fabric Capacity → Properties
+
+---
+
 ### Error Summary Table
 
 | Error Code | API | Cause | Fix |
@@ -780,6 +816,8 @@ curl -X PUT \
 | 400 BadRequest | Fabric | Invalid SKU/quota | Check availability |
 | DAXQueryFailure | Power BI | Bad DAX syntax | Test in Power BI Desktop |
 | Parameters null | Logic App | Wrong deployment method | Use PUT with full body |
+| ThrottleCount always high | Power BI | Missing Capacity ID filter | Add `[Capacity Id]` filter to DAX |
+| Emergency always triggers | Logic App | ThrottleCount > 0 from all capacities | Filter 'Items Throttled' by Capacity ID |
 
 ---
 
