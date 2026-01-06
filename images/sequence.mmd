@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant Timer as ⏰ Timer (5min)
+    participant LA as 🔄 Logic App
+    participant Azure as ☁️ Azure API
+    participant PBI as 📊 Power BI API
+    participant Fabric as 🏭 Fabric Capacity
+    participant Email as 📧 Office 365
+    participant AI as 📝 App Insights
+
+    Timer->>LA: Trigger
+
+    par Get Data
+        LA->>Azure: GET Current SKU
+        Azure-->>LA: F1024
+        LA->>PBI: DAX Query (CU% + Capacity ID filter)
+        PBI-->>LA: CurrentCU: 85%
+        LA->>PBI: DAX Query (Avg45 + Capacity ID filter)
+        PBI-->>LA: AvgCU45: 72%
+        LA->>PBI: DAX Query (Throttle + Capacity ID filter)
+        PBI-->>LA: ThrottleCount: 0, RejectionPct: 0%
+    end
+
+    LA->>LA: Decision Engine
+    Note over LA: CU=85%, Avg=72%<br/>ThrottleCount=0 (filtered)<br/>F1024 threshold: 75%/85%<br/>→ Scale Up!
+
+    LA->>Fabric: PATCH SKU → F2048
+    alt Scale Success
+        Fabric-->>LA: 200 OK
+        LA->>Email: Send Success Alert
+    else Quota Limit
+        Fabric-->>LA: 400 BadRequest (Quota)
+        LA->>Email: Send Blocked Alert
+    end
+
+    LA->>AI: Log Event (Decision + Metrics)

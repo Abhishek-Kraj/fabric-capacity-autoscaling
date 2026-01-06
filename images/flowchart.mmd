@@ -1,0 +1,36 @@
+flowchart TD
+    Start(["Every 5 Minutes"]) --> GetSKU["Get Current SKU<br/>F512 / F1024 / F2048"]
+    GetSKU --> GetMetrics["Get Metrics from Power BI<br/>(filtered by Capacity ID)"]
+    GetMetrics --> ParseMetrics["Parse: CU%, Avg45Min,<br/>ThrottleCount, RejectionPct"]
+    ParseMetrics --> Emergency{"Emergency?<br/>CU≥95% OR<br/>Throttle>0 OR<br/>Reject≥0.5%"}
+
+    Emergency -->|Yes| CheckQuota{"Can Scale Up?<br/>(Quota Check)"}
+    CheckQuota -->|Yes| EmergencyScale["🚨 EMERGENCY SCALE UP<br/>(Bypass Cooldown)"]
+    CheckQuota -->|No/Fail| QuotaBlocked["⚠️ Scale Blocked<br/>(Quota Limit)"]
+    Emergency -->|No| Cooldown{"Cooldown<br/>Active?"}
+
+    Cooldown -->|Yes, < 30min| LogCooldown["Log: Cooldown Active"]
+    Cooldown -->|No| CheckScaleUp{"Scale Up<br/>Needed?"}
+
+    CheckScaleUp -->|Yes| ScaleUp["⬆️ Scale Up<br/>F512→F1024→F2048"]
+    CheckScaleUp -->|No| CheckScaleDown{"Scale Down<br/>Needed?"}
+
+    CheckScaleDown -->|Yes| ScaleDown["⬇️ Scale Down<br/>F2048→F1024→F512"]
+    CheckScaleDown -->|No| NoAction["✓ No Action Needed"]
+
+    EmergencyScale --> Notify["📧 Send Email"]
+    QuotaBlocked --> NotifyBlocked["📧 Send Blocked Email"]
+    ScaleUp --> Notify
+    ScaleDown --> Notify
+    LogCooldown --> Log["📝 Log to App Insights"]
+    NoAction --> Log
+    Notify --> Log
+    NotifyBlocked --> Log
+
+    style Emergency fill:#ffcdd2
+    style EmergencyScale fill:#ef5350,color:#fff
+    style QuotaBlocked fill:#ffc107,color:#000
+    style CheckQuota fill:#fff9c4
+    style ScaleUp fill:#81c784
+    style ScaleDown fill:#fff176
+    style NoAction fill:#e0e0e0

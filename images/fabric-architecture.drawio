@@ -1,0 +1,103 @@
+<mxfile host="app.diagrams.net" modified="2026-01-05T00:00:00.000Z" agent="Claude" version="21.0.0">
+  <diagram name="Fabric Auto-Scaling Architecture" id="fabric-autoscaling">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="850" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="Fabric Auto-Scaling Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Step 1: Trigger Group -->
+        <mxCell id="group1" value="1. SCHEDULE TRIGGER" style="swimlane;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="160" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="trigger" value="Recurrence&#xa;Every 5 min" style="shape=mxgraph.azure.azure_recurrence;fillColor=#0078D4;strokeColor=#0078D4;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group1">
+          <mxGeometry x="40" y="40" width="80" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Step 2: Azure Logic App Group -->
+        <mxCell id="group2" value="2. AZURE LOGIC APP - MHA-BI-PowerBI-Prod-RG" style="swimlane;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="240" y="80" width="200" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="logicapp" value="Logic App&#xa;Fabric-Capacity-&#xa;Autoscaling" style="shape=mxgraph.azure.logic_apps;fillColor=#0078D4;strokeColor=#0078D4;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group2">
+          <mxGeometry x="60" y="35" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="msi" value="Managed Identity&#xa;(MSI)" style="shape=mxgraph.azure.managed_identities;fillColor=#0078D4;strokeColor=#0078D4;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group2">
+          <mxGeometry x="60" y="110" width="80" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Step 3: Microsoft Fabric Group -->
+        <mxCell id="group3" value="3. MICROSOFT FABRIC" style="swimlane;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="480" y="80" width="200" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="powerbi" value="Power BI&#xa;Service API" style="shape=mxgraph.azure.power_bi;fillColor=#F2C811;strokeColor=#F2C811;fontColor=#000000;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group3">
+          <mxGeometry x="60" y="35" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="semantic" value="Capacity Metrics&#xa;Semantic Model" style="shape=mxgraph.azure.analysis_services;fillColor=#0078D4;strokeColor=#0078D4;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group3">
+          <mxGeometry x="60" y="110" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="capacity" value="Fabric Capacity&#xa;bifabricprdentreport01" style="shape=mxgraph.azure.analysis_services;fillColor=#E74856;strokeColor=#E74856;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group3">
+          <mxGeometry x="60" y="185" width="80" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Step 4: Monitoring Group -->
+        <mxCell id="group4" value="4. MONITORING &amp; ALERTS" style="swimlane;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="720" y="100" width="180" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="appinsights" value="Application&#xa;Insights" style="shape=mxgraph.azure.application_insights;fillColor=#68217A;strokeColor=#68217A;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group4">
+          <mxGeometry x="50" y="35" width="80" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="email" value="Email Alert&#xa;Abhishek.kr@alshaya.com" style="shape=mxgraph.azure.email;fillColor=#0078D4;strokeColor=#0078D4;fontColor=#ffffff;verticalLabelPosition=bottom;verticalAlign=top;html=1" vertex="1" parent="group4">
+          <mxGeometry x="50" y="110" width="80" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Flow Arrows with Step Numbers -->
+        <mxCell id="arrow1" value="Step 1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0078D4;fontColor=#0078D4;fontStyle=1" edge="1" parent="1" source="trigger" target="logicapp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow2" value="Step 2: Auth" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0078D4;fontColor=#0078D4;fontStyle=1" edge="1" parent="1" source="msi" target="powerbi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow3" value="Step 3: DAX Query" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0078D4;fontColor=#0078D4;fontStyle=1" edge="1" parent="1" source="logicapp" target="semantic">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow4" value="Step 4: ThrottleCount" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#82B366;fontColor=#82B366;fontStyle=1;dashed=1" edge="1" parent="1" source="semantic" target="logicapp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow5" value="Step 5: Scale if &gt;50%" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#E74856;fontColor=#E74856;fontStyle=1" edge="1" parent="1" source="logicapp" target="capacity">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow6" value="Step 6: Log" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#68217A;fontColor=#68217A;fontStyle=1" edge="1" parent="1" source="logicapp" target="appinsights">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow7" value="Step 7: Alert" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#68217A;fontColor=#68217A;fontStyle=1;dashed=1" edge="1" parent="1" source="logicapp" target="email">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="FLOW LEGEND" style="swimlane;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="280" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="Solid Line = Request" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10" vertex="1" parent="legend">
+          <mxGeometry x="10" y="25" width="140" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value="Dashed Line = Response" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10" vertex="1" parent="legend">
+          <mxGeometry x="10" y="45" width="140" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="Red = Scale Action" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10" vertex="1" parent="legend">
+          <mxGeometry x="10" y="65" width="140" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

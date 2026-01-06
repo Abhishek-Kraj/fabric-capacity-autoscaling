@@ -1,0 +1,158 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0" version="29.2.9">
+  <diagram name="Fabric Auto-Scaling" id="fabric-arch">
+    <mxGraphModel dx="1418" dy="763" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=28;fontStyle=1;fontColor=#0078D4;" value="Fabric Auto-Scaling Architecture" vertex="1">
+          <mxGeometry height="40" width="500" x="360" y="15" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="text;html=1;align=center;verticalAlign=middle;fontSize=14;fontColor=#666666;" value="MHA-BI-PowerBI-Prod-RG" vertex="1">
+          <mxGeometry height="20" width="300" x="440" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="grp1" parent="1" style="swimlane;horizontal=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=12;rounded=1;" value="① SCHEDULE TRIGGER" vertex="1">
+          <mxGeometry height="150" width="180" x="40" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="trigger" parent="grp1" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/integration/Logic_Apps.svg;imageBorder=default;dashed=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="56" y="45" as="geometry" />
+        </mxCell>
+        <mxCell id="trigger_lbl" parent="grp1" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;" value="Recurrence&#xa;Every 5 min" vertex="1">
+          <mxGeometry height="30" width="100" x="40" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="grp2" parent="1" style="swimlane;horizontal=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;rounded=1;" value="② AZURE LOGIC APP" vertex="1">
+          <mxGeometry height="200" width="180" x="300" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="logicapp" parent="grp2" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/integration/Logic_Apps.svg;imageBorder=default;dashed=1;strokeColor=default;verticalAlign=top;fontFamily=Helvetica;fontColor=default;labelBackgroundColor=default;fillColor=default;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="56" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="logicapp_lbl" parent="grp2" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;" value="Fabric-Capacity&#xa;Autoscaling" vertex="1">
+          <mxGeometry height="30" width="100" x="30" y="108" as="geometry" />
+        </mxCell>
+        <mxCell id="msi" parent="grp2" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/identity/Managed_Identities.svg;imageBorder=default;dashed=1;" value="" vertex="1">
+          <mxGeometry height="50" width="50" x="65" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="msi_lbl" parent="grp2" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;" value="MSI" vertex="1">
+          <mxGeometry height="20" width="40" x="120" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="grp3" parent="1" style="swimlane;horizontal=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=12;rounded=1;" value="③ MICROSOFT FABRIC" vertex="1">
+          <mxGeometry height="420" width="200" x="650" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="powerbi" parent="grp3" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/analytics/Power_BI_Embedded.svg;imageBorder=default;dashed=1;strokeColor=default;verticalAlign=top;fontFamily=Helvetica;fontColor=default;labelBackgroundColor=default;fillColor=default;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="66" y="45" as="geometry" />
+        </mxCell>
+        <mxCell id="powerbi_lbl" parent="grp3" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;" value="Power BI&#xa;Service API" vertex="1">
+          <mxGeometry height="30" width="100" x="50" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="semantic" parent="grp3" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/analytics/Analysis_Services.svg;imageBorder=default;dashed=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="66" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="capacity" parent="grp3" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/analytics/Analysis_Services.svg;imageBorder=default;dashed=1;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="66" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="capacity_lbl" parent="grp3" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;fontColor=#E74856;" value="Fabric Capacity&#xa;bifabricprdentreport01&#xa;F2 → F4 → F8" vertex="1">
+          <mxGeometry height="50" width="130" x="35" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="semantic_lbl" parent="grp3" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;" value="Capacity Metrics&#xa;Semantic Model" vertex="1">
+          <mxGeometry height="30" width="110" x="95" y="238" as="geometry" />
+        </mxCell>
+        <mxCell id="grp4" parent="1" style="swimlane;horizontal=1;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=12;rounded=1;" value="④ MONITORING &amp; ALERTS" vertex="1">
+          <mxGeometry height="220" width="200" x="1000" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="insights" parent="grp4" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/azure2/devops/Application_Insights.svg;dashed=1;strokeColor=default;verticalAlign=top;fontFamily=Helvetica;fontColor=default;labelBackgroundColor=default;fillColor=default;imageBorder=default;" value="" vertex="1">
+          <mxGeometry height="68" width="68" x="66" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="insights_lbl" parent="grp4" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;" value="Application&#xa;Insights" vertex="1">
+          <mxGeometry height="30" width="100" x="50" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="email" parent="grp4" style="aspect=fixed;html=1;points=[];align=center;image;fontSize=12;image=img/lib/mscae/Exchange_On_premises_Access.svg;dashed=1;strokeColor=default;verticalAlign=top;fontFamily=Helvetica;fontColor=default;labelBackgroundColor=default;fillColor=default;imageBorder=default;" value="" vertex="1">
+          <mxGeometry height="50" width="50" x="75" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="email_lbl" parent="grp4" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;" value="Email Alert&#xa;Abhishek.kr@alshaya.com" vertex="1">
+          <mxGeometry height="30" width="130" x="35" y="195" as="geometry" />
+        </mxCell>
+        <mxCell id="arr1" edge="1" parent="1" source="trigger" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#0078D4;fontStyle=1;fontSize=11;labelBackgroundColor=#ffffff;" target="logicapp" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;Step 1&lt;/span&gt;">
+          <mxGeometry relative="1" x="0.2074" y="14" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr2" edge="1" parent="1" source="msi" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#00BCF2;fontSize=10;labelBackgroundColor=#ffffff;exitX=1.06;exitY=0.44;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitPerimeter=0;" target="powerbi" value="Step 2: Auth">
+          <mxGeometry relative="1" x="0.5102" y="-21" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="418" y="290" />
+              <mxPoint x="520" y="290" />
+              <mxPoint x="520" y="179" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr3" edge="1" parent="1" source="logicapp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0078D4;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="semantic" value="Step 3: DAX Query">
+          <mxGeometry relative="1" x="0.4592" y="14" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="560" y="204" />
+              <mxPoint x="560" y="304" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr4" edge="1" parent="1" source="semantic" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#82b366;dashed=1;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.279;exitY=0.985;exitDx=0;exitDy=0;entryX=1.029;entryY=0.765;entryDx=0;entryDy=0;exitPerimeter=0;entryPerimeter=0;" target="logicapp" value="Step 4: ThrottleCount %">
+          <mxGeometry relative="1" x="-0.3509" y="10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="735" y="360" />
+              <mxPoint x="530" y="360" />
+              <mxPoint x="530" y="222" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr5" edge="1" parent="1" source="grp2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#E74856;fontSize=11;fontStyle=1;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="capacity" value="Step 5: Scale if &gt;50%">
+          <mxGeometry relative="1" x="0.3674" y="-16" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="390" y="434" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr6" edge="1" parent="1" source="grp2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#68217A;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" value="Step 6: Log">
+          <mxGeometry relative="1" x="0.2911" y="-20" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="510" y="180" />
+              <mxPoint x="510" y="90" />
+              <mxPoint x="950" y="90" />
+              <mxPoint x="950" y="204" />
+            </Array>
+            <mxPoint x="480" y="90" as="sourcePoint" />
+            <mxPoint x="1066" y="204" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="arr7" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#68217A;dashed=1;fontSize=10;labelBackgroundColor=#ffffff;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="email" value="Step 7: Alert">
+          <mxGeometry relative="1" x="0.3056" y="-10" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="450" y="330" />
+              <mxPoint x="450" y="390" />
+              <mxPoint x="960" y="390" />
+              <mxPoint x="960" y="325" />
+            </Array>
+            <mxPoint x="450" y="340" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" parent="1" style="swimlane;horizontal=1;startSize=25;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1;rounded=1;" value="LEGEND" vertex="1">
+          <mxGeometry height="120" width="180" x="40" y="360" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" parent="legend" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#0078D4;fontStyle=1;" value="━━ Request Flow" vertex="1">
+          <mxGeometry height="20" width="120" x="10" y="35" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" parent="legend" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#82b366;fontStyle=1;" value="┅┅ Response Flow" vertex="1">
+          <mxGeometry height="20" width="120" x="10" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" parent="legend" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#E74856;fontStyle=1;" value="━━ Scale Action" vertex="1">
+          <mxGeometry height="20" width="120" x="10" y="75" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" parent="legend" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#68217A;fontStyle=1;" value="┅┅ Alert" vertex="1">
+          <mxGeometry height="20" width="120" x="10" y="95" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
