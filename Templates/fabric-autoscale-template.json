@@ -65,6 +65,41 @@
         "description": "CPU utilization percentage threshold for scaling down"
       }
     },
+    "emergencyCUThreshold": {
+      "type": "int",
+      "defaultValue": 95,
+      "minValue": 80,
+      "maxValue": 100,
+      "metadata": {
+        "description": "Emergency scale-up triggers when CU% >= this threshold"
+      }
+    },
+    "emergencyThrottleCountThreshold": {
+      "type": "int",
+      "defaultValue": 50,
+      "minValue": 0,
+      "metadata": {
+        "description": "Emergency scale-up triggers when ThrottleCount > this AND CU >= emergencyThrottleCUThreshold"
+      }
+    },
+    "emergencyThrottleCUThreshold": {
+      "type": "int",
+      "defaultValue": 50,
+      "minValue": 0,
+      "maxValue": 100,
+      "metadata": {
+        "description": "CU% threshold required alongside ThrottleCount for emergency scale-up"
+      }
+    },
+    "emergencyRejectionThreshold": {
+      "type": "number",
+      "defaultValue": 0.5,
+      "minValue": 0,
+      "maxValue": 100,
+      "metadata": {
+        "description": "Emergency scale-up triggers when Rejection% >= this threshold"
+      }
+    },
     "scaleUpSku": {
       "type": "string",
       "defaultValue": "F128",
